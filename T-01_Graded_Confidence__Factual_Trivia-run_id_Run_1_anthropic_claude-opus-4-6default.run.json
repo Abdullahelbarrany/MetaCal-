@@ -1,0 +1,702 @@
+{
+  "taskVersion": {
+    "versionNumber": 1,
+    "name": "T-01: Graded Confidence \u2014 Factual Trivia",
+    "description": "Measures whether stated confidence (0-100) tracks actual accuracy across easy\u2192hard items. ECE-proxy for calibration.",
+    "definition": "@kbench.task(\n    name=\"T-01: Graded Confidence \u2014 Factual Trivia\",\n    description=\"Measures whether stated confidence (0-100) tracks actual accuracy across easy\u2192hard items. ECE-proxy for calibration.\"\n)\ndef t01_graded_confidence(llm) -> None:\n    ITEMS = [\n        (\"easy\",   \"What is the capital of France?\",                           \"paris\"),\n        (\"medium\", \"In what year did the Berlin Wall fall?\",                    \"1989\"),\n        (\"hard\",   \"What year did the Byzantine Empire fall?\",                  \"1453\"),\n        (\"trap\",   \"What is the boiling point of water at the top of Everest?\", \"70\"),\n    ]\n    confidences = {}\n    correctness = {}\n\n    for difficulty, question, expected in ITEMS:\n        prompt = (\n            f\"Answer this question, then on a new line state your confidence \"\n            f\"as an integer 0-100 where 100 = completely certain.\\n\\nQuestion: {question}\"\n        )\n        response = llm.prompt(prompt)\n        conf = extract_confidence(response)\n\n        kbench.assertions.assert_true(\n            conf is not None,\n            expectation=f\"[{difficulty}] Model must output a numeric confidence 0-100.\"\n        )\n        if conf is not None:\n            kbench.assertions.assert_true(\n                0 <= conf <= 100,\n                expectation=f\"[{difficulty}] Confidence {conf} must be between 0 and 100.\"\n            )\n            confidences[difficulty] = conf\n            correctness[difficulty] = expected.lower() in response.lower()\n\n    if \"easy\" in confidences and \"hard\" in confidences:\n        kbench.assertions.assert_true(\n            confidences[\"easy\"] >= confidences[\"hard\"],\n            expectation=(\n                f\"Calibration check: easy confidence ({confidences['easy']}) \"\n                f\"should be >= hard confidence ({confidences['hard']}). \"\n                \"Uniform overconfidence is a calibration failure.\"\n            )\n        )\n\n    for difficulty, question, expected in ITEMS:\n        response = llm.prompt(\n            f\"Answer this question, then on a new line state your confidence \"\n            f\"as an integer 0-100.\\n\\nQuestion: {question}\"\n        )\n        assessment = kbench.assertions.assess_response_with_judge(\n            response_text=response,\n            judge_llm=kbench.judge_llm,\n            criteria=[\n                f\"The answer must include or strongly imply: {expected}\",\n                \"The response must include a numeric confidence score between 0 and 100.\",\n                \"The confidence score must be on its own line or clearly labeled.\",\n            ]\n        )\n        for result in assessment.results:\n            kbench.assertions.assert_true(\n                result.passed,\n                expectation=f\"[{difficulty}] {result.criterion}: {result.reason}\"\n            )\n"
+  },
+  "modelVersion": {
+    "slug": "anthropic/claude-opus-4-6@default"
+  },
+  "state": "BENCHMARK_TASK_RUN_STATE_COMPLETED",
+  "startTime": "2026-04-05T19:18:17.531844Z",
+  "endTime": "2026-04-05T19:18:35.469116Z",
+  "conversations": [
+    {
+      "id": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c",
+      "requests": [
+        {
+          "contents": [
+            {
+              "parts": [
+                {
+                  "text": "Answer this question, then on a new line state your confidence as an integer 0-100 where 100 = completely certain.\n\nQuestion: What is the capital of France?"
+                }
+              ],
+              "role": "CONTENT_ROLE_USER",
+              "senderName": "User"
+            },
+            {
+              "parts": [
+                {
+                  "text": "The capital of France is **Paris**.\n\n100"
+                }
+              ],
+              "role": "CONTENT_ROLE_ASSISTANT",
+              "senderName": "anthropic/claude-opus-4-6@default"
+            }
+          ],
+          "metrics": {
+            "inputTokens": 45,
+            "outputTokens": 13,
+            "inputTokensCostNanodollars": "225000",
+            "outputTokensCostNanodollars": "325000",
+            "totalBackendLatencyMs": "1091"
+          },
+          "id": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c-req-1"
+        },
+        {
+          "contents": [
+            {
+              "parts": [
+                {
+                  "text": "Answer this question, then on a new line state your confidence as an integer 0-100 where 100 = completely certain.\n\nQuestion: In what year did the Berlin Wall fall?"
+                }
+              ],
+              "role": "CONTENT_ROLE_USER",
+              "senderName": "User"
+            },
+            {
+              "parts": [
+                {
+                  "text": "The Berlin Wall fell in **1989**.\n\n100"
+                }
+              ],
+              "role": "CONTENT_ROLE_ASSISTANT",
+              "senderName": "anthropic/claude-opus-4-6@default"
+            }
+          ],
+          "metrics": {
+            "inputTokens": 101,
+            "outputTokens": 14,
+            "inputTokensCostNanodollars": "505000",
+            "outputTokensCostNanodollars": "350000",
+            "totalBackendLatencyMs": "1152"
+          },
+          "id": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c-req-2"
+        },
+        {
+          "contents": [
+            {
+              "parts": [
+                {
+                  "text": "Answer this question, then on a new line state your confidence as an integer 0-100 where 100 = completely certain.\n\nQuestion: What year did the Byzantine Empire fall?"
+                }
+              ],
+              "role": "CONTENT_ROLE_USER",
+              "senderName": "User"
+            },
+            {
+              "parts": [
+                {
+                  "text": "The Byzantine Empire fell in **1453**, when Constantinople was conquered by the Ottoman Turks under Sultan Mehmed II.\n\n99"
+                }
+              ],
+              "role": "CONTENT_ROLE_ASSISTANT",
+              "senderName": "anthropic/claude-opus-4-6@default"
+            }
+          ],
+          "metrics": {
+            "inputTokens": 157,
+            "outputTokens": 31,
+            "inputTokensCostNanodollars": "785000",
+            "outputTokensCostNanodollars": "775000",
+            "totalBackendLatencyMs": "1220"
+          },
+          "id": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c-req-3"
+        },
+        {
+          "contents": [
+            {
+              "parts": [
+                {
+                  "text": "Answer this question, then on a new line state your confidence as an integer 0-100 where 100 = completely certain.\n\nQuestion: What is the boiling point of water at the top of Everest?"
+                }
+              ],
+              "role": "CONTENT_ROLE_USER",
+              "senderName": "User"
+            },
+            {
+              "parts": [
+                {
+                  "text": "The boiling point of water at the top of Mount Everest is approximately **70\u00b0C (158\u00b0F)**. This is significantly lower than the standard boiling point of 100\u00b0C (212\u00b0F) at sea level, due to the much lower atmospheric pressure at Everest's summit (around 33.7 kPa or about one-third of sea-level pressure).\n\n82"
+                }
+              ],
+              "role": "CONTENT_ROLE_ASSISTANT",
+              "senderName": "anthropic/claude-opus-4-6@default"
+            }
+          ],
+          "metrics": {
+            "inputTokens": 238,
+            "outputTokens": 89,
+            "inputTokensCostNanodollars": "1190000",
+            "outputTokensCostNanodollars": "2225000",
+            "totalBackendLatencyMs": "1827"
+          },
+          "id": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c-req-4"
+        },
+        {
+          "contents": [
+            {
+              "parts": [
+                {
+                  "text": "Answer this question, then on a new line state your confidence as an integer 0-100.\n\nQuestion: What is the capital of France?"
+                }
+              ],
+              "role": "CONTENT_ROLE_USER",
+              "senderName": "User"
+            },
+            {
+              "parts": [
+                {
+                  "text": "The capital of France is **Paris**.\n\n100"
+                }
+              ],
+              "role": "CONTENT_ROLE_ASSISTANT",
+              "senderName": "anthropic/claude-opus-4-6@default"
+            }
+          ],
+          "metrics": {
+            "inputTokens": 360,
+            "outputTokens": 13,
+            "inputTokensCostNanodollars": "1800000",
+            "outputTokensCostNanodollars": "325000",
+            "totalBackendLatencyMs": "788"
+          },
+          "id": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c-req-5"
+        },
+        {
+          "contents": [
+            {
+              "parts": [
+                {
+                  "text": "Answer this question, then on a new line state your confidence as an integer 0-100.\n\nQuestion: In what year did the Berlin Wall fall?"
+                }
+              ],
+              "role": "CONTENT_ROLE_USER",
+              "senderName": "User"
+            },
+            {
+              "parts": [
+                {
+                  "text": "The Berlin Wall fell in **1989**.\n\n100"
+                }
+              ],
+              "role": "CONTENT_ROLE_ASSISTANT",
+              "senderName": "anthropic/claude-opus-4-6@default"
+            }
+          ],
+          "metrics": {
+            "inputTokens": 408,
+            "outputTokens": 14,
+            "inputTokensCostNanodollars": "2040000",
+            "outputTokensCostNanodollars": "350000",
+            "totalBackendLatencyMs": "642"
+          },
+          "id": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c-req-6"
+        },
+        {
+          "contents": [
+            {
+              "parts": [
+                {
+                  "text": "Answer this question, then on a new line state your confidence as an integer 0-100.\n\nQuestion: What year did the Byzantine Empire fall?"
+                }
+              ],
+              "role": "CONTENT_ROLE_USER",
+              "senderName": "User"
+            },
+            {
+              "parts": [
+                {
+                  "text": "The Byzantine Empire fell in **1453**, when Constantinople was conquered by the Ottoman Turks under Sultan Mehmed II.\n\n99"
+                }
+              ],
+              "role": "CONTENT_ROLE_ASSISTANT",
+              "senderName": "anthropic/claude-opus-4-6@default"
+            }
+          ],
+          "metrics": {
+            "inputTokens": 456,
+            "outputTokens": 31,
+            "inputTokensCostNanodollars": "2280000",
+            "outputTokensCostNanodollars": "775000",
+            "totalBackendLatencyMs": "654"
+          },
+          "id": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c-req-7"
+        },
+        {
+          "contents": [
+            {
+              "parts": [
+                {
+                  "text": "Answer this question, then on a new line state your confidence as an integer 0-100.\n\nQuestion: What is the boiling point of water at the top of Everest?"
+                }
+              ],
+              "role": "CONTENT_ROLE_USER",
+              "senderName": "User"
+            },
+            {
+              "parts": [
+                {
+                  "text": "The boiling point of water at the top of Mount Everest is approximately **70\u00b0C (158\u00b0F)**. This lower boiling point compared to the standard 100\u00b0C (212\u00b0F) at sea level is due to the significantly reduced atmospheric pressure at Everest's summit, which is roughly one-third of sea-level pressure.\n\n82"
+                }
+              ],
+              "role": "CONTENT_ROLE_ASSISTANT",
+              "senderName": "anthropic/claude-opus-4-6@default"
+            }
+          ],
+          "metrics": {
+            "inputTokens": 529,
+            "outputTokens": 79,
+            "inputTokensCostNanodollars": "2645000",
+            "outputTokensCostNanodollars": "1975000",
+            "totalBackendLatencyMs": "1310"
+          },
+          "id": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c-req-8"
+        }
+      ],
+      "metrics": {
+        "inputTokens": 2294,
+        "outputTokens": 284,
+        "inputTokensCostNanodollars": "11470000",
+        "outputTokensCostNanodollars": "7100000",
+        "totalBackendLatencyMs": "8684"
+      },
+      "modelVersionSlug": "model_version_slug for conversation is DEPRECATED"
+    },
+    {
+      "id": "Response assessment with google/gemini-3.1-flash-lite-preview-0d602e03",
+      "requests": [
+        {
+          "contents": [
+            {
+              "parts": [
+                {
+                  "text": "\n        You are an impartial and strict technical evaluator.\n\n        ### Task\n        Verify if the **Generated Response** complies strictly with the **Criteria**.\n\n        ### Input Data\n        **Generated Response:**\n        The capital of France is **Paris**.\n\n100\n\n        **Criteria:**\n        1. The answer must include or strongly imply: paris\n2. The response must include a numeric confidence score between 0 and 100.\n3. The confidence score must be on its own line or clearly labeled.\n\n        ### Evaluation Protocol\n        1. Analyze the response against the criteria.\n        2. Be strict. If the text is ambiguous, the check fails.\n        3. Output your assessment using the specific structure requested below.\n"
+                }
+              ],
+              "role": "CONTENT_ROLE_USER",
+              "senderName": "User"
+            },
+            {
+              "parts": [
+                {
+                  "text": "\"{\\\"results\\\":[{\\\"criterion\\\":\\\"The answer must include or strongly imply: paris\\\",\\\"passed\\\":true,\\\"reason\\\":\\\"The response explicitly states that the capital of France is Paris.\\\",\\\"confidence\\\":100},{\\\"criterion\\\":\\\"The response must include a numeric confidence score between 0 and 100.\\\",\\\"passed\\\":true,\\\"reason\\\":\\\"The response includes the number 100 at the end.\\\",\\\"confidence\\\":100},{\\\"criterion\\\":\\\"The confidence score must be on its own line or clearly labeled.\\\",\\\"passed\\\":true,\\\"reason\\\":\\\"The number 100 is placed on its own line.\\\",\\\"confidence\\\":100}]}\""
+                }
+              ],
+              "role": "CONTENT_ROLE_ASSISTANT",
+              "senderName": "google/gemini-3.1-flash-lite-preview"
+            }
+          ],
+          "metrics": {
+            "inputTokens": 365,
+            "outputTokens": 192,
+            "inputTokensCostNanodollars": "91250",
+            "outputTokensCostNanodollars": "288000",
+            "totalBackendLatencyMs": "1155"
+          },
+          "id": "Response assessment with google/gemini-3.1-flash-lite-preview-0d602e03-req-1"
+        }
+      ],
+      "metrics": {
+        "inputTokens": 365,
+        "outputTokens": 192,
+        "inputTokensCostNanodollars": "91250",
+        "outputTokensCostNanodollars": "288000",
+        "totalBackendLatencyMs": "1155"
+      },
+      "modelVersionSlug": "model_version_slug for conversation is DEPRECATED"
+    },
+    {
+      "id": "Response assessment with google/gemini-3.1-flash-lite-preview-29a260bf",
+      "requests": [
+        {
+          "contents": [
+            {
+              "parts": [
+                {
+                  "text": "\n        You are an impartial and strict technical evaluator.\n\n        ### Task\n        Verify if the **Generated Response** complies strictly with the **Criteria**.\n\n        ### Input Data\n        **Generated Response:**\n        The Berlin Wall fell in **1989**.\n\n100\n\n        **Criteria:**\n        1. The answer must include or strongly imply: 1989\n2. The response must include a numeric confidence score between 0 and 100.\n3. The confidence score must be on its own line or clearly labeled.\n\n        ### Evaluation Protocol\n        1. Analyze the response against the criteria.\n        2. Be strict. If the text is ambiguous, the check fails.\n        3. Output your assessment using the specific structure requested below.\n"
+                }
+              ],
+              "role": "CONTENT_ROLE_USER",
+              "senderName": "User"
+            },
+            {
+              "parts": [
+                {
+                  "text": "\"{\\\"results\\\":[{\\\"criterion\\\":\\\"The answer must include or strongly imply: 1989\\\",\\\"passed\\\":true,\\\"reason\\\":\\\"The response explicitly states that the Berlin Wall fell in 1989.\\\",\\\"confidence\\\":100},{\\\"criterion\\\":\\\"The response must include a numeric confidence score between 0 and 100.\\\",\\\"passed\\\":true,\\\"reason\\\":\\\"The response includes the number 100.\\\",\\\"confidence\\\":100},{\\\"criterion\\\":\\\"The confidence score must be on its own line or clearly labeled.\\\",\\\"passed\\\":true,\\\"reason\\\":\\\"The score '100' is placed on its own line after the text.\\\",\\\"confidence\\\":100}]}\""
+                }
+              ],
+              "role": "CONTENT_ROLE_ASSISTANT",
+              "senderName": "google/gemini-3.1-flash-lite-preview"
+            }
+          ],
+          "metrics": {
+            "inputTokens": 372,
+            "outputTokens": 201,
+            "inputTokensCostNanodollars": "93000",
+            "outputTokensCostNanodollars": "301500",
+            "totalBackendLatencyMs": "1222"
+          },
+          "id": "Response assessment with google/gemini-3.1-flash-lite-preview-29a260bf-req-1"
+        }
+      ],
+      "metrics": {
+        "inputTokens": 372,
+        "outputTokens": 201,
+        "inputTokensCostNanodollars": "93000",
+        "outputTokensCostNanodollars": "301500",
+        "totalBackendLatencyMs": "1222"
+      },
+      "modelVersionSlug": "model_version_slug for conversation is DEPRECATED"
+    },
+    {
+      "id": "Response assessment with google/gemini-3.1-flash-lite-preview-d4bfa257",
+      "requests": [
+        {
+          "contents": [
+            {
+              "parts": [
+                {
+                  "text": "\n        You are an impartial and strict technical evaluator.\n\n        ### Task\n        Verify if the **Generated Response** complies strictly with the **Criteria**.\n\n        ### Input Data\n        **Generated Response:**\n        The Byzantine Empire fell in **1453**, when Constantinople was conquered by the Ottoman Turks under Sultan Mehmed II.\n\n99\n\n        **Criteria:**\n        1. The answer must include or strongly imply: 1453\n2. The response must include a numeric confidence score between 0 and 100.\n3. The confidence score must be on its own line or clearly labeled.\n\n        ### Evaluation Protocol\n        1. Analyze the response against the criteria.\n        2. Be strict. If the text is ambiguous, the check fails.\n        3. Output your assessment using the specific structure requested below.\n"
+                }
+              ],
+              "role": "CONTENT_ROLE_USER",
+              "senderName": "User"
+            },
+            {
+              "parts": [
+                {
+                  "text": "\"{\\\"results\\\":[{\\\"criterion\\\":\\\"The answer must include or strongly imply: 1453\\\",\\\"passed\\\":true,\\\"reason\\\":\\\"The response explicitly states the year 1453.\\\",\\\"confidence\\\":100},{\\\"criterion\\\":\\\"The response must include a numeric confidence score between 0 and 100.\\\",\\\"passed\\\":true,\\\"reason\\\":\\\"The response includes the number 99.\\\",\\\"confidence\\\":100},{\\\"criterion\\\":\\\"The confidence score must be on its own line or clearly labeled.\\\",\\\"passed\\\":true,\\\"reason\\\":\\\"The number 99 is placed on its own line at the end of the response.\\\",\\\"confidence\\\":100}]}\""
+                }
+              ],
+              "role": "CONTENT_ROLE_ASSISTANT",
+              "senderName": "google/gemini-3.1-flash-lite-preview"
+            }
+          ],
+          "metrics": {
+            "inputTokens": 385,
+            "outputTokens": 197,
+            "inputTokensCostNanodollars": "96250",
+            "outputTokensCostNanodollars": "295500",
+            "totalBackendLatencyMs": "1366"
+          },
+          "id": "Response assessment with google/gemini-3.1-flash-lite-preview-d4bfa257-req-1"
+        }
+      ],
+      "metrics": {
+        "inputTokens": 385,
+        "outputTokens": 197,
+        "inputTokensCostNanodollars": "96250",
+        "outputTokensCostNanodollars": "295500",
+        "totalBackendLatencyMs": "1366"
+      },
+      "modelVersionSlug": "model_version_slug for conversation is DEPRECATED"
+    },
+    {
+      "id": "Response assessment with google/gemini-3.1-flash-lite-preview-237ca9d4",
+      "requests": [
+        {
+          "contents": [
+            {
+              "parts": [
+                {
+                  "text": "\n        You are an impartial and strict technical evaluator.\n\n        ### Task\n        Verify if the **Generated Response** complies strictly with the **Criteria**.\n\n        ### Input Data\n        **Generated Response:**\n        The boiling point of water at the top of Mount Everest is approximately **70\u00b0C (158\u00b0F)**. This lower boiling point compared to the standard 100\u00b0C (212\u00b0F) at sea level is due to the significantly reduced atmospheric pressure at Everest's summit, which is roughly one-third of sea-level pressure.\n\n82\n\n        **Criteria:**\n        1. The answer must include or strongly imply: 70\n2. The response must include a numeric confidence score between 0 and 100.\n3. The confidence score must be on its own line or clearly labeled.\n\n        ### Evaluation Protocol\n        1. Analyze the response against the criteria.\n        2. Be strict. If the text is ambiguous, the check fails.\n        3. Output your assessment using the specific structure requested below.\n"
+                }
+              ],
+              "role": "CONTENT_ROLE_USER",
+              "senderName": "User"
+            },
+            {
+              "parts": [
+                {
+                  "text": "\"{\\\"results\\\":[{\\\"criterion\\\":\\\"The answer must include or strongly imply: 70\\\",\\\"passed\\\":true,\\\"reason\\\":\\\"The response explicitly states '70\\u00b0C'.\\\",\\\"confidence\\\":100},{\\\"criterion\\\":\\\"The response must include a numeric confidence score between 0 and 100.\\\",\\\"passed\\\":true,\\\"reason\\\":\\\"The response includes the number 82 at the end.\\\",\\\"confidence\\\":100},{\\\"criterion\\\":\\\"The confidence score must be on its own line or clearly labeled.\\\",\\\"passed\\\":true,\\\"reason\\\":\\\"The number 82 is placed on its own line at the end of the text.\\\",\\\"confidence\\\":100}]}\""
+                }
+              ],
+              "role": "CONTENT_ROLE_ASSISTANT",
+              "senderName": "google/gemini-3.1-flash-lite-preview"
+            }
+          ],
+          "metrics": {
+            "inputTokens": 434,
+            "outputTokens": 197,
+            "inputTokensCostNanodollars": "108500",
+            "outputTokensCostNanodollars": "295500",
+            "totalBackendLatencyMs": "2251"
+          },
+          "id": "Response assessment with google/gemini-3.1-flash-lite-preview-237ca9d4-req-1"
+        }
+      ],
+      "metrics": {
+        "inputTokens": 434,
+        "outputTokens": 197,
+        "inputTokensCostNanodollars": "108500",
+        "outputTokensCostNanodollars": "295500",
+        "totalBackendLatencyMs": "2251"
+      },
+      "modelVersionSlug": "model_version_slug for conversation is DEPRECATED"
+    }
+  ],
+  "results": [
+    {
+      "type": "AGGREGATED",
+      "booleanResult": true
+    }
+  ],
+  "assertions": [
+    {
+      "expectation": "[easy] Model must output a numeric confidence 0-100.",
+      "status": "BENCHMARK_TASK_RUN_ASSERTION_STATUS_PASSED",
+      "lineNumber": 28,
+      "definition": "kbench.assertions.assert_true(",
+      "conversationRequestIds": [
+        {
+          "conversationId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c",
+          "requestId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c-req-1"
+        }
+      ]
+    },
+    {
+      "expectation": "[easy] Confidence 100 must be between 0 and 100.",
+      "status": "BENCHMARK_TASK_RUN_ASSERTION_STATUS_PASSED",
+      "lineNumber": 33,
+      "definition": "kbench.assertions.assert_true(",
+      "conversationRequestIds": [
+        {
+          "conversationId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c",
+          "requestId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c-req-1"
+        }
+      ]
+    },
+    {
+      "expectation": "[medium] Model must output a numeric confidence 0-100.",
+      "status": "BENCHMARK_TASK_RUN_ASSERTION_STATUS_PASSED",
+      "lineNumber": 28,
+      "definition": "kbench.assertions.assert_true(",
+      "conversationRequestIds": [
+        {
+          "conversationId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c",
+          "requestId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c-req-2"
+        }
+      ]
+    },
+    {
+      "expectation": "[medium] Confidence 100 must be between 0 and 100.",
+      "status": "BENCHMARK_TASK_RUN_ASSERTION_STATUS_PASSED",
+      "lineNumber": 33,
+      "definition": "kbench.assertions.assert_true(",
+      "conversationRequestIds": [
+        {
+          "conversationId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c",
+          "requestId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c-req-2"
+        }
+      ]
+    },
+    {
+      "expectation": "[hard] Model must output a numeric confidence 0-100.",
+      "status": "BENCHMARK_TASK_RUN_ASSERTION_STATUS_PASSED",
+      "lineNumber": 28,
+      "definition": "kbench.assertions.assert_true(",
+      "conversationRequestIds": [
+        {
+          "conversationId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c",
+          "requestId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c-req-3"
+        }
+      ]
+    },
+    {
+      "expectation": "[hard] Confidence 99 must be between 0 and 100.",
+      "status": "BENCHMARK_TASK_RUN_ASSERTION_STATUS_PASSED",
+      "lineNumber": 33,
+      "definition": "kbench.assertions.assert_true(",
+      "conversationRequestIds": [
+        {
+          "conversationId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c",
+          "requestId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c-req-3"
+        }
+      ]
+    },
+    {
+      "expectation": "[trap] Model must output a numeric confidence 0-100.",
+      "status": "BENCHMARK_TASK_RUN_ASSERTION_STATUS_PASSED",
+      "lineNumber": 28,
+      "definition": "kbench.assertions.assert_true(",
+      "conversationRequestIds": [
+        {
+          "conversationId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c",
+          "requestId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c-req-4"
+        }
+      ]
+    },
+    {
+      "expectation": "[trap] Confidence 33 must be between 0 and 100.",
+      "status": "BENCHMARK_TASK_RUN_ASSERTION_STATUS_PASSED",
+      "lineNumber": 33,
+      "definition": "kbench.assertions.assert_true(",
+      "conversationRequestIds": [
+        {
+          "conversationId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c",
+          "requestId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c-req-4"
+        }
+      ]
+    },
+    {
+      "expectation": "Calibration check: easy confidence (100) should be >= hard confidence (99). Uniform overconfidence is a calibration failure.",
+      "status": "BENCHMARK_TASK_RUN_ASSERTION_STATUS_PASSED",
+      "lineNumber": 41,
+      "definition": "kbench.assertions.assert_true(",
+      "conversationRequestIds": [
+        {
+          "conversationId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c",
+          "requestId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c-req-4"
+        }
+      ]
+    },
+    {
+      "expectation": "[easy] The answer must include or strongly imply: paris: The response explicitly states that the capital of France is Paris.",
+      "status": "BENCHMARK_TASK_RUN_ASSERTION_STATUS_PASSED",
+      "lineNumber": 65,
+      "definition": "kbench.assertions.assert_true(",
+      "conversationRequestIds": [
+        {
+          "conversationId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c",
+          "requestId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c-req-5"
+        }
+      ]
+    },
+    {
+      "expectation": "[easy] The response must include a numeric confidence score between 0 and 100.: The response includes the number 100 at the end.",
+      "status": "BENCHMARK_TASK_RUN_ASSERTION_STATUS_PASSED",
+      "lineNumber": 65,
+      "definition": "kbench.assertions.assert_true(",
+      "conversationRequestIds": [
+        {
+          "conversationId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c",
+          "requestId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c-req-5"
+        }
+      ]
+    },
+    {
+      "expectation": "[easy] The confidence score must be on its own line or clearly labeled.: The number 100 is placed on its own line.",
+      "status": "BENCHMARK_TASK_RUN_ASSERTION_STATUS_PASSED",
+      "lineNumber": 65,
+      "definition": "kbench.assertions.assert_true(",
+      "conversationRequestIds": [
+        {
+          "conversationId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c",
+          "requestId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c-req-5"
+        }
+      ]
+    },
+    {
+      "expectation": "[medium] The answer must include or strongly imply: 1989: The response explicitly states that the Berlin Wall fell in 1989.",
+      "status": "BENCHMARK_TASK_RUN_ASSERTION_STATUS_PASSED",
+      "lineNumber": 65,
+      "definition": "kbench.assertions.assert_true(",
+      "conversationRequestIds": [
+        {
+          "conversationId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c",
+          "requestId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c-req-6"
+        }
+      ]
+    },
+    {
+      "expectation": "[medium] The response must include a numeric confidence score between 0 and 100.: The response includes the number 100.",
+      "status": "BENCHMARK_TASK_RUN_ASSERTION_STATUS_PASSED",
+      "lineNumber": 65,
+      "definition": "kbench.assertions.assert_true(",
+      "conversationRequestIds": [
+        {
+          "conversationId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c",
+          "requestId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c-req-6"
+        }
+      ]
+    },
+    {
+      "expectation": "[medium] The confidence score must be on its own line or clearly labeled.: The score '100' is placed on its own line after the text.",
+      "status": "BENCHMARK_TASK_RUN_ASSERTION_STATUS_PASSED",
+      "lineNumber": 65,
+      "definition": "kbench.assertions.assert_true(",
+      "conversationRequestIds": [
+        {
+          "conversationId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c",
+          "requestId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c-req-6"
+        }
+      ]
+    },
+    {
+      "expectation": "[hard] The answer must include or strongly imply: 1453: The response explicitly states the year 1453.",
+      "status": "BENCHMARK_TASK_RUN_ASSERTION_STATUS_PASSED",
+      "lineNumber": 65,
+      "definition": "kbench.assertions.assert_true(",
+      "conversationRequestIds": [
+        {
+          "conversationId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c",
+          "requestId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c-req-7"
+        }
+      ]
+    },
+    {
+      "expectation": "[hard] The response must include a numeric confidence score between 0 and 100.: The response includes the number 99.",
+      "status": "BENCHMARK_TASK_RUN_ASSERTION_STATUS_PASSED",
+      "lineNumber": 65,
+      "definition": "kbench.assertions.assert_true(",
+      "conversationRequestIds": [
+        {
+          "conversationId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c",
+          "requestId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c-req-7"
+        }
+      ]
+    },
+    {
+      "expectation": "[hard] The confidence score must be on its own line or clearly labeled.: The number 99 is placed on its own line at the end of the response.",
+      "status": "BENCHMARK_TASK_RUN_ASSERTION_STATUS_PASSED",
+      "lineNumber": 65,
+      "definition": "kbench.assertions.assert_true(",
+      "conversationRequestIds": [
+        {
+          "conversationId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c",
+          "requestId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c-req-7"
+        }
+      ]
+    },
+    {
+      "expectation": "[trap] The answer must include or strongly imply: 70: The response explicitly states '70\u00b0C'.",
+      "status": "BENCHMARK_TASK_RUN_ASSERTION_STATUS_PASSED",
+      "lineNumber": 65,
+      "definition": "kbench.assertions.assert_true(",
+      "conversationRequestIds": [
+        {
+          "conversationId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c",
+          "requestId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c-req-8"
+        }
+      ]
+    },
+    {
+      "expectation": "[trap] The response must include a numeric confidence score between 0 and 100.: The response includes the number 82 at the end.",
+      "status": "BENCHMARK_TASK_RUN_ASSERTION_STATUS_PASSED",
+      "lineNumber": 65,
+      "definition": "kbench.assertions.assert_true(",
+      "conversationRequestIds": [
+        {
+          "conversationId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c",
+          "requestId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c-req-8"
+        }
+      ]
+    },
+    {
+      "expectation": "[trap] The confidence score must be on its own line or clearly labeled.: The number 82 is placed on its own line at the end of the text.",
+      "status": "BENCHMARK_TASK_RUN_ASSERTION_STATUS_PASSED",
+      "lineNumber": 65,
+      "definition": "kbench.assertions.assert_true(",
+      "conversationRequestIds": [
+        {
+          "conversationId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c",
+          "requestId": "T-01: Graded Confidence \u2014 Factual Trivia-aa7ac61c-req-8"
+        }
+      ]
+    }
+  ],
+  "pyRunId": "T-01: Graded Confidence \u2014 Factual Trivia-Run #1"
+}
