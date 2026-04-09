@@ -9,6 +9,8 @@ __pycache__/
 # Distribution / packaging
 .Python
 build/
+results_only (1)
+*.zip
 develop-eggs/
 dist/
 downloads/
