@@ -9,7 +9,8 @@ __pycache__/
 # Distribution / packaging
 .Python
 build/
-results_only (1)
+results_only pass2
+.claude
 *.zip
 develop-eggs/
 dist/
