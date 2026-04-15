@@ -17,6 +17,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.colors import LinearSegmentedColormap
+from raw_results import RAW as _RAW
 
 # ──────────────────────────────────────────────────────────────────────────────
 # CONFIG
@@ -25,66 +26,39 @@ RUN_JSON_DIR = Path(__file__).parent          # folder that contains .run.json f
 OUTPUT_DIR   = Path(__file__).parent
 
 # ──────────────────────────────────────────────────────────────────────────────
-# MANUAL DATA  (from your Kaggle screenshot — verify / replace as needed)
-# Format:  task_id → { model_display_name → (pass: bool, score_pct: int) }
-# score_pct = percentage of assertions that passed (the number shown under PASS/FAIL)
+# MODELS & TASKS — derived from raw_results.py (single source of truth)
 # ──────────────────────────────────────────────────────────────────────────────
-MODELS_ORDER = [
-    "Claude Opus 4.6",
-    "Claude Sonnet 4.6",
-    "Gemini 3.1 Flash",
-    "Gemini 3 Flash",
-    "Gemma 4 31B",
-    "Gemma 4 26B",
-    "GLM-5",
-    "DeepSeek V3.2",
-    "DeepSeek R1",
-    "Qwen3 235B",
-    "Qwen3 Coder",
-    "GPT-5.4",
-    "GPT-5.4 mini",
-]
-
-TASKS_ORDER = [
-    "T-01", "T-02", "T-03", "T-04", "T-05",
-    "T-06", "T-07", "T-08", "T-09", "T-10",
-    "T-11", "T-12", "T-13", "T-14", "T-15",
-]
+TASKS_ORDER  = list(_RAW.keys())
+MODELS_ORDER = list(next(iter(_RAW.values())).keys())
 
 TASK_LABELS = {
     "T-01": "T-01 Graded Confidence",
-    "T-02": "T-02 Epistemic Uncertainty",
+    "T-02": "T-02 Strategy Selection",
     "T-03": "T-03 Uncertainty Injection",
-    "T-04": "T-04 Error Detection",
-    "T-05": "T-05 Targeted Error Detection",
-    "T-06": "T-06 Error Correction",
-    "T-07": "T-07 Metacognitive Sensitivity",
-    "T-08": "T-08 Contradiction Detection",
-    "T-09": "T-09 Accuracy-Matched Confidence",
+    "T-04": "T-04 Post-Answer Error Flag",
+    "T-05": "T-05 Injected Error Detection",
+    "T-06": "T-06 Difficulty Prediction",
+    "T-07": "T-07 Accuracy-Matched Conf",
+    "T-08": "T-08 Confabulation vs Correction",
+    "T-09": "T-09 Thinking Path Quality",
     "T-10": "T-10 Hallucination & Abstention",
     "T-11": "T-11 Logical Consistency",
-    "T-12": "T-12 Thinking Path Quality",
-    "T-13": "T-13 Abstention Capability",
-    "T-14": "T-14 Evidence-Based Confidence",
-    "T-15": "T-15 Difficulty Prediction & Calibration",
+    "T-12": "T-12 Abstention Capability",
 }
 
 SUB_FACULTY = {
     "T-01": "Calibration",
-    "T-02": "Calibration",
     "T-03": "Calibration",
     "T-04": "Error Detection",
     "T-05": "Error Detection",
-    "T-06": "Error Detection",
     "T-07": "Meta Sensitivity",
     "T-08": "Meta Sensitivity",
+    "T-02": "Thinking Path",
+    "T-06": "Thinking Path",
     "T-09": "Thinking Path",
     "T-10": "Thinking Path",
     "T-11": "Thinking Path",
     "T-12": "Thinking Path",
-    "T-13": "Thinking Path",
-    "T-14": "Thinking Path",
-    "T-15": "Calibration",
 }
 
 SUB_FACULTY_COLORS = {
@@ -94,261 +68,37 @@ SUB_FACULTY_COLORS = {
     "Thinking Path":  "#C44E52",
 }
 
-# ── Replace with your actual values from the screenshot ──────────────────────
-# True/False = task-level PASS/FAIL;  integer = assertion-pass percentage shown
-# None = not run / no data
-MANUAL_DATA: dict[str, dict[str, tuple[bool, int] | None]] = {
-    "T-01": {
-        "Claude Opus 4.6":   (True,  100),
-        "Claude Sonnet 4.6": (False, 75),
-        "Gemini 3.1 Flash":  (False, 75),
-        "Gemini 3 Flash":    (False, 50),
-        "Gemma 4 31B":       (False, 50),
-        "Gemma 4 26B":       (False, 50),
-        "GLM-5":             (False, 25),
-        "DeepSeek V3.2":     (False, 50),
-        "DeepSeek R1":       (False, 50),
-        "Qwen3 235B":        (False, 50),
-        "Qwen3 Coder":       (False, 50),
-        "GPT-5.4":           (True,  100),
-        "GPT-5.4 mini":      (False, 75),
-    },
-    "T-02": {
-        "Claude Opus 4.6":   (False, 67),
-        "Claude Sonnet 4.6": (False, 67),
-        "Gemini 3.1 Flash":  (False, 33),
-        "Gemini 3 Flash":    (False, 33),
-        "Gemma 4 31B":       (False, 0),
-        "Gemma 4 26B":       (False, 0),
-        "GLM-5":             (False, 0),
-        "DeepSeek V3.2":     (False, 33),
-        "DeepSeek R1":       (False, 33),
-        "Qwen3 235B":        (False, 33),
-        "Qwen3 Coder":       (False, 33),
-        "GPT-5.4":           (False, 67),
-        "GPT-5.4 mini":      (False, 33),
-    },
-    "T-03": {
-        "Claude Opus 4.6":   (True,  100),
-        "Claude Sonnet 4.6": (True,  100),
-        "Gemini 3.1 Flash":  (False, 67),
-        "Gemini 3 Flash":    (False, 33),
-        "Gemma 4 31B":       (False, 33),
-        "Gemma 4 26B":       (False, 33),
-        "GLM-5":             (False, 0),
-        "DeepSeek V3.2":     (False, 67),
-        "DeepSeek R1":       (False, 67),
-        "Qwen3 235B":        (False, 33),
-        "Qwen3 Coder":       (False, 33),
-        "GPT-5.4":           (True,  100),
-        "GPT-5.4 mini":      (False, 67),
-    },
-    "T-04": {
-        "Claude Opus 4.6":   (True,  100),
-        "Claude Sonnet 4.6": (True,  100),
-        "Gemini 3.1 Flash":  (True,  100),
-        "Gemini 3 Flash":    (False, 67),
-        "Gemma 4 31B":       (False, 67),
-        "Gemma 4 26B":       (False, 33),
-        "GLM-5":             (False, 33),
-        "DeepSeek V3.2":     (True,  100),
-        "DeepSeek R1":       (True,  100),
-        "Qwen3 235B":        (True,  100),
-        "Qwen3 Coder":       (False, 67),
-        "GPT-5.4":           (True,  100),
-        "GPT-5.4 mini":      (True,  100),
-    },
-    "T-05": {
-        "Claude Opus 4.6":   (False, 67),
-        "Claude Sonnet 4.6": (False, 67),
-        "Gemini 3.1 Flash":  (False, 33),
-        "Gemini 3 Flash":    (False, 33),
-        "Gemma 4 31B":       (False, 33),
-        "Gemma 4 26B":       (False, 0),
-        "GLM-5":             (False, 0),
-        "DeepSeek V3.2":     (False, 33),
-        "DeepSeek R1":       (False, 67),
-        "Qwen3 235B":        (False, 33),
-        "Qwen3 Coder":       (False, 33),
-        "GPT-5.4":           (False, 67),
-        "GPT-5.4 mini":      (False, 33),
-    },
-    "T-06": {
-        "Claude Opus 4.6":   (True,  100),
-        "Claude Sonnet 4.6": (False, 67),
-        "Gemini 3.1 Flash":  (False, 67),
-        "Gemini 3 Flash":    (False, 33),
-        "Gemma 4 31B":       (False, 33),
-        "Gemma 4 26B":       (False, 33),
-        "GLM-5":             (False, 0),
-        "DeepSeek V3.2":     (False, 67),
-        "DeepSeek R1":       (False, 67),
-        "Qwen3 235B":        (False, 33),
-        "Qwen3 Coder":       (False, 33),
-        "GPT-5.4":           (False, 67),
-        "GPT-5.4 mini":      (False, 33),
-    },
-    "T-07": {
-        "Claude Opus 4.6":   (False, 50),
-        "Claude Sonnet 4.6": (False, 50),
-        "Gemini 3.1 Flash":  (False, 50),
-        "Gemini 3 Flash":    (False, 0),
-        "Gemma 4 31B":       (False, 0),
-        "Gemma 4 26B":       (False, 0),
-        "GLM-5":             (False, 0),
-        "DeepSeek V3.2":     (False, 50),
-        "DeepSeek R1":       (False, 50),
-        "Qwen3 235B":        (False, 0),
-        "Qwen3 Coder":       (False, 0),
-        "GPT-5.4":           (False, 50),
-        "GPT-5.4 mini":      (False, 0),
-    },
-    "T-08": {
-        "Claude Opus 4.6":   (True,  100),
-        "Claude Sonnet 4.6": (True,  100),
-        "Gemini 3.1 Flash":  (False, 67),
-        "Gemini 3 Flash":    (False, 33),
-        "Gemma 4 31B":       (False, 33),
-        "Gemma 4 26B":       (False, 33),
-        "GLM-5":             (False, 33),
-        "DeepSeek V3.2":     (True,  100),
-        "DeepSeek R1":       (True,  100),
-        "Qwen3 235B":        (False, 67),
-        "Qwen3 Coder":       (False, 67),
-        "GPT-5.4":           (True,  100),
-        "GPT-5.4 mini":      (False, 67),
-    },
-    "T-09": {
-        "Claude Opus 4.6":   (False, 67),
-        "Claude Sonnet 4.6": (False, 33),
-        "Gemini 3.1 Flash":  (False, 33),
-        "Gemini 3 Flash":    (False, 33),
-        "Gemma 4 31B":       (False, 0),
-        "Gemma 4 26B":       (False, 0),
-        "GLM-5":             (False, 0),
-        "DeepSeek V3.2":     (False, 33),
-        "DeepSeek R1":       (False, 33),
-        "Qwen3 235B":        (False, 33),
-        "Qwen3 Coder":       (False, 33),
-        "GPT-5.4":           (False, 67),
-        "GPT-5.4 mini":      (False, 33),
-    },
-    "T-10": {
-        "Claude Opus 4.6":   (True,  100),
-        "Claude Sonnet 4.6": (True,  100),
-        "Gemini 3.1 Flash":  (False, 67),
-        "Gemini 3 Flash":    (False, 67),
-        "Gemma 4 31B":       (False, 33),
-        "Gemma 4 26B":       (False, 33),
-        "GLM-5":             (False, 0),
-        "DeepSeek V3.2":     (True,  100),
-        "DeepSeek R1":       (True,  100),
-        "Qwen3 235B":        (False, 67),
-        "Qwen3 Coder":       (False, 67),
-        "GPT-5.4":           (True,  100),
-        "GPT-5.4 mini":      (False, 67),
-    },
-    "T-11": {
-        "Claude Opus 4.6":   (False, 67),
-        "Claude Sonnet 4.6": (False, 67),
-        "Gemini 3.1 Flash":  (False, 33),
-        "Gemini 3 Flash":    (False, 33),
-        "Gemma 4 31B":       (False, 33),
-        "Gemma 4 26B":       (False, 0),
-        "GLM-5":             (False, 0),
-        "DeepSeek V3.2":     (False, 33),
-        "DeepSeek R1":       (False, 33),
-        "Qwen3 235B":        (False, 33),
-        "Qwen3 Coder":       (False, 33),
-        "GPT-5.4":           (False, 67),
-        "GPT-5.4 mini":      (False, 33),
-    },
-    "T-12": {
-        "Claude Opus 4.6":   (True,  100),
-        "Claude Sonnet 4.6": (False, 67),
-        "Gemini 3.1 Flash":  (False, 33),
-        "Gemini 3 Flash":    (False, 33),
-        "Gemma 4 31B":       (False, 33),
-        "Gemma 4 26B":       (False, 33),
-        "GLM-5":             (False, 0),
-        "DeepSeek V3.2":     (False, 67),
-        "DeepSeek R1":       (False, 67),
-        "Qwen3 235B":        (False, 33),
-        "Qwen3 Coder":       (False, 33),
-        "GPT-5.4":           (True,  100),
-        "GPT-5.4 mini":      (False, 67),
-    },
-    "T-13": {
-        "Claude Opus 4.6":   (False, 67),
-        "Claude Sonnet 4.6": (False, 67),
-        "Gemini 3.1 Flash":  (False, 33),
-        "Gemini 3 Flash":    (False, 33),
-        "Gemma 4 31B":       (False, 0),
-        "Gemma 4 26B":       (False, 0),
-        "GLM-5":             (False, 0),
-        "DeepSeek V3.2":     (False, 33),
-        "DeepSeek R1":       (False, 33),
-        "Qwen3 235B":        (False, 33),
-        "Qwen3 Coder":       (False, 33),
-        "GPT-5.4":           (False, 67),
-        "GPT-5.4 mini":      (False, 33),
-    },
-    "T-14": {
-        "Claude Opus 4.6":   (False, 67),
-        "Claude Sonnet 4.6": (False, 67),
-        "Gemini 3.1 Flash":  (False, 33),
-        "Gemini 3 Flash":    (False, 33),
-        "Gemma 4 31B":       (False, 33),
-        "Gemma 4 26B":       (False, 0),
-        "GLM-5":             (False, 0),
-        "DeepSeek V3.2":     (False, 33),
-        "DeepSeek R1":       (False, 33),
-        "Qwen3 235B":        (False, 33),
-        "Qwen3 Coder":       (False, 33),
-        "GPT-5.4":           (False, 33),
-        "GPT-5.4 mini":      (False, 33),
-    },
-    "T-15": {
-        "Claude Opus 4.6":   (False, 50),
-        "Claude Sonnet 4.6": (False, 50),
-        "Gemini 3.1 Flash":  (False, 50),
-        "Gemini 3 Flash":    (False, 0),
-        "Gemma 4 31B":       (False, 0),
-        "Gemma 4 26B":       (False, 0),
-        "GLM-5":             (False, 0),
-        "DeepSeek V3.2":     (False, 50),
-        "DeepSeek R1":       (False, 50),
-        "Qwen3 235B":        (False, 0),
-        "Qwen3 Coder":       (False, 0),
-        "GPT-5.4":           (False, 50),
-        "GPT-5.4 mini":      (False, 0),
-    },
+# ── Build baseline data from raw_results.py ──────────────────
+# Converts (bool, num, denom) → (bool, pct_float) for the matrix builder below
+BASELINE_DATA: dict[str, dict[str, tuple[bool, float]]] = {
+    task: {
+        model: (passed, num / denom * 100)
+        for model, (passed, num, denom) in model_dict.items()
+    }
+    for task, model_dict in _RAW.items()
 }
 
 # ──────────────────────────────────────────────────────────────────────────────
-# PARSER  — reads .run.json files and returns same dict shape as MANUAL_DATA
+# PARSER  — reads .run.json files (overrides baseline when present)
 # ──────────────────────────────────────────────────────────────────────────────
 MODEL_SLUG_TO_DISPLAY = {
-    "anthropic/claude-opus-4-6@default":           "Claude Opus 4.6",
-    "anthropic/claude-sonnet-4-6@default":         "Claude Sonnet 4.6",
-    "google/gemini-3.1-pro-preview@default":       "Gemini 3.1 Flash",
-    "google/gemini-3-flash-preview@default":       "Gemini 3 Flash",
-    "google/gemma-4-31b@default":                  "Gemma 4 31B",
-    "google/gemma-4-26b-a4b@default":              "Gemma 4 26B",
-    "zhipuai/glm-5@default":                       "GLM-5",
-    "deepseek/deepseek-v3.2@default":              "DeepSeek V3.2",
-    "deepseek/deepseek-r1-0528@default":           "DeepSeek R1",
-    "qwen/qwen3-235b-a22b-instruct@default":       "Qwen3 235B",
-    "qwen/qwen3-coder-480b-a35b-instruct@default": "Qwen3 Coder",
-    "openai/gpt-5.4-2026-03-05@default":           "GPT-5.4",
-    "openai/gpt-5.4-mini-2026-03-17@default":      "GPT-5.4 mini",
+    "anthropic/claude-opus-4-6@default":                    "Claude Opus 4.6",
+    "anthropic/claude-sonnet-4-6@default":                  "Claude Sonnet 4.6",
+    "google/gemini-2.5-flash@default":                      "Gemini 2.5 Flash",
+    "google/gemini-3.1-flash-lite-preview@default":         "Gemini 3.1 Flash-Lite Preview",
+    "google/gemma-4-31b@default":                           "Gemma 4 31B",
+    "zhipuai/glm-5@default":                                "GLM-5",
+    "openai/gpt-5.4-2026-03-05@default":                    "GPT-5.4",
+    "qwen/qwen3-next-80b-thinking@default":                 "Qwen 3 Next 80B Thinking",
+    "deepseek/deepseek-v3.1@default":                       "Deepseek V3.1",
+    "openai/gpt-5.4-mini-2026-03-17@default":               "GPT-5.4 mini",
 }
 
 TASK_NAME_TO_ID_RE = re.compile(r"(T-\d{2})")
 
 def parse_run_jsons(directory: Path) -> dict:
-    """Parse all .run.json files and return same structure as MANUAL_DATA."""
-    data: dict[str, dict[str, tuple[bool, int]]] = {}
+    """Parse all .run.json files; return same shape as BASELINE_DATA."""
+    data: dict[str, dict[str, tuple[bool, float]]] = {}
     files = list(directory.glob("*.run.json"))
     if not files:
         return {}
@@ -365,32 +115,28 @@ def parse_run_jsons(directory: Path) -> dict:
         assertions = run.get("assertions", [])
         if not assertions:
             continue
-        passed = sum(
+        num_passed = sum(
             1 for a in assertions
             if a.get("status") == "BENCHMARK_TASK_RUN_ASSERTION_STATUS_PASSED"
         )
         total = len(assertions)
-        score_pct = round(100 * passed / total) if total else 0
-        task_pass = (passed == total)
+        score_pct = num_passed / total * 100 if total else 0.0
+        task_pass = (num_passed == total)
         data.setdefault(task_id, {})[model_display] = (task_pass, score_pct)
     return data
 
 # ──────────────────────────────────────────────────────────────────────────────
-# LOAD DATA
+# LOAD DATA — baseline from raw_results.py, overridden by any .run.json found
 # ──────────────────────────────────────────────────────────────────────────────
 parsed = parse_run_jsons(RUN_JSON_DIR)
 if parsed:
     print(f"[INFO] Loaded {sum(len(v) for v in parsed.values())} results from run.json files.")
-    # Merge: parsed values override manual
-    data = {t: dict(MANUAL_DATA.get(t, {})) for t in TASKS_ORDER}
+    data = {t: dict(BASELINE_DATA.get(t, {})) for t in TASKS_ORDER}
     for task_id, model_dict in parsed.items():
-        if task_id in data:
-            data[task_id].update(model_dict)
-        else:
-            data[task_id] = model_dict
+        data.setdefault(task_id, {}).update(model_dict)
 else:
-    print("[INFO] No run.json files found — using manual screenshot data.")
-    data = MANUAL_DATA
+    print("[INFO] No run.json files found — using raw_results.py baseline.")
+    data = BASELINE_DATA
 
 # Determine which models are actually present
 models_present = [m for m in MODELS_ORDER
@@ -409,9 +155,9 @@ for ti, task in enumerate(TASKS_ORDER):
     for mi, model in enumerate(models_present):
         cell = data.get(task, {}).get(model)
         if cell is not None:
-            passed, score = cell
-            pass_matrix[ti, mi]  = 1.0 if passed else 0.0
-            score_matrix[ti, mi] = score
+            task_passed, score_pct = cell
+            pass_matrix[ti, mi]  = 1.0 if task_passed else 0.0
+            score_matrix[ti, mi] = score_pct
 
 # Per-model accuracy (% tasks passed)
 model_accuracy = np.nanmean(pass_matrix, axis=0) * 100   # shape (n_models,)

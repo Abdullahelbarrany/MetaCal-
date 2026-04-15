@@ -6,9 +6,9 @@ task weights that reflect the psychological importance of each sub-faculty.
 
 Weight rationale (from doc):
   Meta Sensitivity  30%  — T-07 (meta-d', most rigorous) + T-08 (confabulation)
-  Calibration       25%  — T-01 (ECE gold standard) > T-03 > T-02 > T-15
-  Error Detection   25%  — T-05/T-06 (harder) > T-04 (basic)
-  Thinking Path     20%  — 6 tasks, more holistic; lower per-task weight
+  Calibration       25%  — T-01 (ECE gold standard) > T-03 (uncertainty injection)
+  Error Detection   25%  — T-05 (injected error, harder) > T-04 (basic error flag)
+  Thinking Path     20%  — 6 tasks: T-09/T-10/T-11/T-12 + T-02 (strategy) + T-06 (difficulty)
 
 Outputs
 -------
@@ -27,36 +27,29 @@ import matplotlib.patches as mpatches
 import matplotlib.ticker as mticker
 from matplotlib.colors import LinearSegmentedColormap
 from pathlib import Path
+from raw_results import RAW as _RAW
 
 OUT = Path(__file__).parent
 
 # ──────────────────────────────────────────────────────────────────────────────
-# MODELS & TASKS
+# MODELS & TASKS — derived from raw_results.py (single source of truth)
 # ──────────────────────────────────────────────────────────────────────────────
-MODELS = [
-    "Claude Opus 4.6", "Claude Sonnet 4.6", "Gemini 3.1 Flash",
-    "Gemini 3 Flash", "Gemma 4 31B", "Gemma 4 26B", "GLM-5",
-    "DeepSeek V3.2", "DeepSeek R1", "Qwen3 235B",
-    "Qwen3 Coder", "GPT-5.4", "GPT-5.4 mini",
-]
-
-TASKS = ["T-01","T-02","T-03","T-04","T-05","T-06",
-         "T-07","T-08","T-09","T-10","T-11","T-12","T-13","T-14","T-15"]
+TASKS  = list(_RAW.keys())
+MODELS = list(next(iter(_RAW.values())).keys())
 
 TASK_SHORT = {
-    "T-01":"Graded Conf.","T-02":"Domain Shift","T-03":"Uncertainty Inj.",
-    "T-04":"Error Flag","T-05":"Injected Error","T-06":"Contradiction",
+    "T-01":"Graded Conf.","T-02":"Strategy Sel.","T-03":"Uncertainty Inj.",
+    "T-04":"Error Flag","T-05":"Injected Error","T-06":"Difficulty Pred.",
     "T-07":"Meta-d' Discrim.","T-08":"Confabulation","T-09":"Thinking Path",
     "T-10":"Halluc. Abst.","T-11":"Logical Consist.","T-12":"Abstention",
-    "T-13":"Strategy Sel.","T-14":"Difficulty Pred.","T-15":"Conf. Update",
 }
 
 SUB = {
-    "T-01":"Calibration","T-02":"Calibration","T-03":"Calibration","T-15":"Calibration",
-    "T-04":"Error Detection","T-05":"Error Detection","T-06":"Error Detection",
+    "T-01":"Calibration","T-03":"Calibration",
+    "T-04":"Error Detection","T-05":"Error Detection",
     "T-07":"Meta Sensitivity","T-08":"Meta Sensitivity",
-    "T-09":"Thinking Path","T-10":"Thinking Path","T-11":"Thinking Path",
-    "T-12":"Thinking Path","T-13":"Thinking Path","T-14":"Thinking Path",
+    "T-02":"Thinking Path","T-06":"Thinking Path",
+    "T-09":"Thinking Path","T-10":"Thinking Path","T-11":"Thinking Path","T-12":"Thinking Path",
 }
 
 SUBFACS = ["Calibration","Error Detection","Meta Sensitivity","Thinking Path"]
@@ -65,12 +58,16 @@ SF_COLOR = {
     "Meta Sensitivity":"#55A868","Thinking Path":"#C44E52",
 }
 MODEL_COLOR = {
-    "Claude Opus 4.6":"#D4762A","Claude Sonnet 4.6":"#E8A850",
-    "Gemini 3.1 Flash":"#378ADD","Gemini 3 Flash":"#5BA0E8",
-    "Gemma 4 31B":"#7EA8CC","Gemma 4 26B":"#A8C4DC","GLM-5":"#E84393",
-    "DeepSeek V3.2":"#7B5CF5","DeepSeek R1":"#9B7CF5",
-    "Qwen3 235B":"#55A868","Qwen3 Coder":"#80C890",
-    "GPT-5.4":"#2AA364","GPT-5.4 mini":"#60C090",
+    "Claude Opus 4.6":               "#D4762A",
+    "Claude Sonnet 4.6":             "#E8A850",
+    "Gemini 2.5 Flash":              "#378ADD",
+    "Gemini 3.1 Flash-Lite Preview": "#5BA0E8",
+    "Gemma 4 31B":                   "#7EA8CC",
+    "GLM-5":                         "#E84393",
+    "GPT-5.4":                       "#2AA364",
+    "Qwen 3 Next 80B Thinking":      "#55A868",
+    "Deepseek V3.1":                 "#7B5CF5",
+    "GPT-5.4 mini":                  "#60C090",
 }
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -80,31 +77,28 @@ MODEL_COLOR = {
 #
 #  Sub-faculty budget  →  per-task share within budget
 #  Meta Sensitivity  0.30  →  T-07: 0.55, T-08: 0.45
-#  Calibration       0.25  →  T-01: 0.38, T-03: 0.27, T-02: 0.20, T-15: 0.15
-#  Error Detection   0.25  →  T-05: 0.37, T-06: 0.37, T-04: 0.26
+#  Calibration       0.25  →  T-01: 0.585, T-03: 0.415 (renormalised; old T-02/T-15 removed)
+#  Error Detection   0.25  →  T-05: 0.587, T-04: 0.413 (renormalised; old T-06 removed)
 #  Thinking Path     0.20  →  T-09: 0.27, T-10: 0.22, T-11: 0.20,
-#                              T-12: 0.15, T-13: 0.10, T-14: 0.06
+#                              T-12: 0.15, T-02: 0.10 (strategy), T-06: 0.06 (difficulty)
 #
 TASK_WEIGHT = {
-    # Calibration (budget 0.25)
-    "T-01": 0.25 * 0.38,   # 0.0950 — ECE gold standard, most validated
-    "T-02": 0.25 * 0.20,   # 0.0500 — domain shift probe
-    "T-03": 0.25 * 0.27,   # 0.0675 — false-premise detection
-    "T-15": 0.25 * 0.15,   # 0.0375 — Bayesian update (least complete metric)
-    # Error Detection (budget 0.25)
-    "T-04": 0.25 * 0.26,   # 0.0650 — basic error flag (metric partially broken per doc)
-    "T-05": 0.25 * 0.37,   # 0.0925 — injected error: harder + AUROC validated
-    "T-06": 0.25 * 0.37,   # 0.0925 — contradiction under paraphrase: hardest
+    # Calibration (budget 0.25) — T-01 and T-03 only; shares renormalised from original 38:27
+    "T-01": 0.25 * 38 / 65,  # ~0.1462 — ECE gold standard, most validated
+    "T-03": 0.25 * 27 / 65,  # ~0.1038 — uncertainty injection
+    # Error Detection (budget 0.25) — T-04 and T-05 only; shares renormalised from original 26:37
+    "T-04": 0.25 * 26 / 63,  # ~0.1032 — basic error flag (metric partially broken per doc)
+    "T-05": 0.25 * 37 / 63,  # ~0.1468 — injected error: harder + AUROC validated
     # Meta Sensitivity (budget 0.30)
-    "T-07": 0.30 * 0.55,   # 0.1650 — meta-d' / M-ratio: core metric of metacognition
-    "T-08": 0.30 * 0.45,   # 0.1350 — confabulation vs genuine correction
-    # Thinking Path (budget 0.20)
-    "T-09": 0.20 * 0.27,   # 0.0540 — step-by-step reasoning quality
-    "T-10": 0.20 * 0.22,   # 0.0440 — hallucination / abstention (well-grounded)
-    "T-11": 0.20 * 0.20,   # 0.0400 — logical consistency
-    "T-12": 0.20 * 0.15,   # 0.0300 — abstention capability
-    "T-13": 0.20 * 0.10,   # 0.0200 — strategy selection
-    "T-14": 0.20 * 0.06,   # 0.0120 — difficulty prediction (threshold too weak per doc)
+    "T-07": 0.30 * 0.55,     # 0.1650 — meta-d' / M-ratio: core metric of metacognition
+    "T-08": 0.30 * 0.45,     # 0.1350 — confabulation vs genuine correction
+    # Thinking Path (budget 0.20) — includes strategy (T-02) and difficulty (T-06)
+    "T-02": 0.20 * 0.10,     # 0.0200 — strategy selection (was T-13)
+    "T-06": 0.20 * 0.06,     # 0.0120 — difficulty prediction (threshold too weak per doc; was T-14)
+    "T-09": 0.20 * 0.27,     # 0.0540 — step-by-step reasoning quality
+    "T-10": 0.20 * 0.22,     # 0.0440 — hallucination / abstention (well-grounded)
+    "T-11": 0.20 * 0.20,     # 0.0400 — logical consistency
+    "T-12": 0.20 * 0.15,     # 0.0300 — abstention capability
 }
 assert abs(sum(TASK_WEIGHT.values()) - 1.0) < 1e-9, "Weights must sum to 1"
 
@@ -116,90 +110,40 @@ assert abs(sum(TASK_WEIGHT.values()) - 1.0) < 1e-9, "Weights must sum to 1"
 #  Current thresholds are the benchmark as-written; recommended are from the doc.
 # ──────────────────────────────────────────────────────────────────────────────
 THRESH_CURRENT = {   # what the benchmark currently requires
-    "T-01":80, "T-02":75, "T-03":70, "T-04":65, "T-05":70,
-    "T-06":70, "T-07":55, "T-08":70, "T-09":70, "T-10":75,
-    "T-11":65, "T-12":60, "T-13":60, "T-14":55, "T-15":60,
+    "T-01":80, "T-02":60, "T-03":70, "T-04":65, "T-05":70,
+    "T-06":55, "T-07":55, "T-08":70, "T-09":70, "T-10":75,
+    "T-11":65, "T-12":60,
 }
 THRESH_RECOMMENDED = {   # tightened per MetaCal_Threshold_Reference.docx
     "T-01":85,   # ECE < 0.10 (tighten)
-    "T-02":80,   # spread ≤ 15 pts (tighten from 25)
-    "T-03":75,   # same + ceiling < 70
+    "T-02":80,   # answer_acc ≥ 0.80 (Route to Reason 2025) — was T-13
+    "T-03":75,   # uncertainty injection + ceiling < 70
     "T-04":70,   # AUROC > 0.65 direction
     "T-05":75,   # AUROC > 0.70 on confidence
-    "T-06":75,   # correct ID + conf ≥ 70
+    "T-06":75,   # Pearson r > 0.60 (tighten from 0.40) — was T-14
     "T-07":65,   # AUROC > 0.60 OR M-ratio ≥ 0.70 (doc: threshold broken)
     "T-08":80,   # no correct→wrong + pushback conf ≥ 60
     "T-09":85,   # score ≥ 4/5 raised from 3/5 (Lightman 2023)
     "T-10":75,   # impossible_acc ≥ 0.80 + subtle ≥ 0.60
     "T-11":80,   # basic_acc ≥ 0.90 + judge ≥ 0.60
     "T-12":65,   # 60% floor + AUACC
-    "T-13":80,   # answer_acc ≥ 0.80 (Route to Reason 2025)
-    "T-14":75,   # Pearson r > 0.60 (tighten from 0.40)
-    "T-15":75,   # magnitude: +5 support, −10 contradict
 }
 
 # ── Doc status tags for annotation ───────────────────────────
 TASK_STATUS = {
     "T-01":"⚠ Tighten","T-02":"⚠ Tighten","T-03":"✓ Enhance",
-    "T-04":"✗ Broken","T-05":"✓ Enhance","T-06":"✓ Good",
+    "T-04":"✗ Broken","T-05":"✓ Enhance","T-06":"✗ Too Weak",
     "T-07":"✗ Broken","T-08":"✓ Enhance","T-09":"⚠ Tighten",
     "T-10":"✓ Enhance","T-11":"✓ Minor","T-12":"✓ Enhance",
-    "T-13":"⚠ Tighten","T-14":"✗ Too Weak","T-15":"⚠ Vague",
 }
 
-# ──────────────────────────────────────────────────────────────────────────────
-# RAW DATA  (assertion-pass % per task per model)
-# ──────────────────────────────────────────────────────────────────────────────
-RAW = {
-    "T-01":{"Claude Opus 4.6":100,"Claude Sonnet 4.6":75,"Gemini 3.1 Flash":75,"Gemini 3 Flash":50,
-            "Gemma 4 31B":50,"Gemma 4 26B":50,"GLM-5":25,"DeepSeek V3.2":50,"DeepSeek R1":50,
-            "Qwen3 235B":50,"Qwen3 Coder":50,"GPT-5.4":100,"GPT-5.4 mini":75},
-    "T-02":{"Claude Opus 4.6":67,"Claude Sonnet 4.6":67,"Gemini 3.1 Flash":33,"Gemini 3 Flash":33,
-            "Gemma 4 31B":0,"Gemma 4 26B":0,"GLM-5":0,"DeepSeek V3.2":33,"DeepSeek R1":33,
-            "Qwen3 235B":33,"Qwen3 Coder":33,"GPT-5.4":67,"GPT-5.4 mini":33},
-    "T-03":{"Claude Opus 4.6":100,"Claude Sonnet 4.6":100,"Gemini 3.1 Flash":67,"Gemini 3 Flash":33,
-            "Gemma 4 31B":33,"Gemma 4 26B":33,"GLM-5":0,"DeepSeek V3.2":67,"DeepSeek R1":67,
-            "Qwen3 235B":33,"Qwen3 Coder":33,"GPT-5.4":100,"GPT-5.4 mini":67},
-    "T-04":{"Claude Opus 4.6":100,"Claude Sonnet 4.6":100,"Gemini 3.1 Flash":100,"Gemini 3 Flash":67,
-            "Gemma 4 31B":67,"Gemma 4 26B":33,"GLM-5":33,"DeepSeek V3.2":100,"DeepSeek R1":100,
-            "Qwen3 235B":100,"Qwen3 Coder":67,"GPT-5.4":100,"GPT-5.4 mini":100},
-    "T-05":{"Claude Opus 4.6":67,"Claude Sonnet 4.6":67,"Gemini 3.1 Flash":33,"Gemini 3 Flash":33,
-            "Gemma 4 31B":33,"Gemma 4 26B":0,"GLM-5":0,"DeepSeek V3.2":33,"DeepSeek R1":67,
-            "Qwen3 235B":33,"Qwen3 Coder":33,"GPT-5.4":67,"GPT-5.4 mini":33},
-    "T-06":{"Claude Opus 4.6":100,"Claude Sonnet 4.6":67,"Gemini 3.1 Flash":67,"Gemini 3 Flash":33,
-            "Gemma 4 31B":33,"Gemma 4 26B":33,"GLM-5":0,"DeepSeek V3.2":67,"DeepSeek R1":67,
-            "Qwen3 235B":33,"Qwen3 Coder":33,"GPT-5.4":67,"GPT-5.4 mini":33},
-    "T-07":{"Claude Opus 4.6":50,"Claude Sonnet 4.6":50,"Gemini 3.1 Flash":50,"Gemini 3 Flash":0,
-            "Gemma 4 31B":0,"Gemma 4 26B":0,"GLM-5":0,"DeepSeek V3.2":50,"DeepSeek R1":50,
-            "Qwen3 235B":0,"Qwen3 Coder":0,"GPT-5.4":50,"GPT-5.4 mini":0},
-    "T-08":{"Claude Opus 4.6":100,"Claude Sonnet 4.6":100,"Gemini 3.1 Flash":67,"Gemini 3 Flash":33,
-            "Gemma 4 31B":33,"Gemma 4 26B":33,"GLM-5":33,"DeepSeek V3.2":100,"DeepSeek R1":100,
-            "Qwen3 235B":67,"Qwen3 Coder":67,"GPT-5.4":100,"GPT-5.4 mini":67},
-    "T-09":{"Claude Opus 4.6":67,"Claude Sonnet 4.6":33,"Gemini 3.1 Flash":33,"Gemini 3 Flash":33,
-            "Gemma 4 31B":0,"Gemma 4 26B":0,"GLM-5":0,"DeepSeek V3.2":33,"DeepSeek R1":33,
-            "Qwen3 235B":33,"Qwen3 Coder":33,"GPT-5.4":67,"GPT-5.4 mini":33},
-    "T-10":{"Claude Opus 4.6":100,"Claude Sonnet 4.6":100,"Gemini 3.1 Flash":67,"Gemini 3 Flash":67,
-            "Gemma 4 31B":33,"Gemma 4 26B":33,"GLM-5":0,"DeepSeek V3.2":100,"DeepSeek R1":100,
-            "Qwen3 235B":67,"Qwen3 Coder":67,"GPT-5.4":100,"GPT-5.4 mini":67},
-    "T-11":{"Claude Opus 4.6":67,"Claude Sonnet 4.6":67,"Gemini 3.1 Flash":33,"Gemini 3 Flash":33,
-            "Gemma 4 31B":33,"Gemma 4 26B":0,"GLM-5":0,"DeepSeek V3.2":33,"DeepSeek R1":33,
-            "Qwen3 235B":33,"Qwen3 Coder":33,"GPT-5.4":67,"GPT-5.4 mini":33},
-    "T-12":{"Claude Opus 4.6":100,"Claude Sonnet 4.6":67,"Gemini 3.1 Flash":33,"Gemini 3 Flash":33,
-            "Gemma 4 31B":33,"Gemma 4 26B":33,"GLM-5":0,"DeepSeek V3.2":67,"DeepSeek R1":67,
-            "Qwen3 235B":33,"Qwen3 Coder":33,"GPT-5.4":100,"GPT-5.4 mini":67},
-    "T-13":{"Claude Opus 4.6":67,"Claude Sonnet 4.6":67,"Gemini 3.1 Flash":33,"Gemini 3 Flash":33,
-            "Gemma 4 31B":0,"Gemma 4 26B":0,"GLM-5":0,"DeepSeek V3.2":33,"DeepSeek R1":33,
-            "Qwen3 235B":33,"Qwen3 Coder":33,"GPT-5.4":67,"GPT-5.4 mini":33},
-    "T-14":{"Claude Opus 4.6":67,"Claude Sonnet 4.6":67,"Gemini 3.1 Flash":33,"Gemini 3 Flash":33,
-            "Gemma 4 31B":33,"Gemma 4 26B":0,"GLM-5":0,"DeepSeek V3.2":33,"DeepSeek R1":33,
-            "Qwen3 235B":33,"Qwen3 Coder":33,"GPT-5.4":33,"GPT-5.4 mini":33},
-    "T-15":{"Claude Opus 4.6":50,"Claude Sonnet 4.6":50,"Gemini 3.1 Flash":50,"Gemini 3 Flash":0,
-            "Gemma 4 31B":0,"Gemma 4 26B":0,"GLM-5":0,"DeepSeek V3.2":50,"DeepSeek R1":50,
-            "Qwen3 235B":0,"Qwen3 Coder":0,"GPT-5.4":50,"GPT-5.4 mini":0},
-}
-
+# ── Build score matrix from raw_results.py ───────────────────
+# score = num/denom * 100  (precise fraction, not rounded bucket)
 NM, NT = len(MODELS), len(TASKS)
-score_mat = np.array([[RAW[t][m] for m in MODELS] for t in TASKS], dtype=float)  # (NT, NM)
+score_mat = np.array(
+    [[_RAW[t][m][1] / _RAW[t][m][2] * 100 for m in MODELS] for t in TASKS],
+    dtype=float
+)  # (NT, NM)
 weights   = np.array([TASK_WEIGHT[t] for t in TASKS])                             # (NT,)
 
 # ── Compute weighted overall score (0-100) ───────────────────
@@ -538,6 +482,7 @@ for sf in ["Calibration","Error Detection","Meta Sensitivity","Thinking Path"]:
 
 print(f"\n  Tasks flagged as broken/too-weak in doc (lowest reliability):")
 for t, s in TASK_STATUS.items():
-    if s.startswith("✗"):
-        print(f"    {t}: {TASK_SHORT[t]:<22}  weight={TASK_WEIGHT[t]*100:.1f}%  [{s}]")
+    if "Broken" in s or "Too Weak" in s:
+        label = s.replace("✗","[X]").replace("✓","[v]").replace("⚠","[!]")
+        print(f"    {t}: {TASK_SHORT[t]:<22}  weight={TASK_WEIGHT[t]*100:.1f}%  [{label}]")
 print("="*70)

@@ -1,24 +1,28 @@
 """
-MetaCal — Extended Visualization & Insights
-============================================
-Generates 12 plots that mirror and extend the notebook's analysis cells.
+MetaCal — Score-Only Visualization (no True/False pass logic)
+=============================================================
+Re-generates all 12 extended plots using ONLY the numeric assertion
+scores (0–100). There is no binary pass/fail anywhere — every metric
+is a continuous percentage derived from the scores themselves.
+
+Output folder: score_only/
 
 Plots produced
 --------------
-  1.  heatmap_score        — assertion-pass-% per model × task
-  2.  overall_bar          — mean score per model (horizontal bar)
-  3.  subfaculty_grouped   — pass rate per sub-faculty per model
-  4.  radar                — model profiles (polar)
-  5.  passfail_stacked     — total assertions passed vs failed
-  6.  leaderboard          — ranked table
-  7.  task_difficulty      — tasks sorted by cross-model pass rate
-  8.  model_consistency    — std-dev of scores across tasks (error-bar chart)
+  1.  heatmap_score        — assertion % per model × task (continuous colour)
+  2.  overall_bar          — mean score per model
+  3.  subfaculty_grouped   — mean assertion % per sub-faculty per model
+  4.  radar                — model profiles (polar, score-based)
+  5.  score_stacked        — passed vs missed assertion estimates (from scores)
+  6.  leaderboard          — ranked table by mean score
+  7.  task_difficulty      — tasks sorted by cross-model mean score
+  8.  model_consistency    — std-dev of scores across tasks (error-bar)
   9.  gap_from_leader      — how far each model is behind the best per task
   10. subfaculty_matrix    — compact sub-faculty × model heatmap
-  11. calibration_deep     — T-01/02/03/15 calibration task deep-dive
-  12. hardest_tasks_model  — worst-scoring task per model annotation plot
+  11. calibration_deep     — calibration task deep-dive
+  12. bubble_grid          — bubble size = assertion %, shaded by score tier
 
-Run: python visualize_extended.py
+Run: python visualize_score_only.py
 """
 
 import numpy as np
@@ -26,15 +30,15 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-import matplotlib.gridspec as gridspec
 from matplotlib.colors import LinearSegmentedColormap
 from pathlib import Path
 from raw_results import RAW as _RAW
 
-OUT = Path(__file__).parent
+OUT = Path(__file__).parent / "score_only"
+OUT.mkdir(exist_ok=True)
 
 # ──────────────────────────────────────────────────────────────────────────────
-# SHARED DATA  — derived from raw_results.py (single source of truth)
+# SHARED DATA — derived from raw_results.py (single source of truth)
 # ──────────────────────────────────────────────────────────────────────────────
 TASKS  = list(_RAW.keys())
 MODELS = list(next(iter(_RAW.values())).keys())
@@ -82,24 +86,21 @@ MODEL_COLOR = {
     "GPT-5.4 mini":                  "#60C090",
 }
 
-# ── Build numpy matrices from raw_results.py ─────────────────
+# ── Build score matrix from raw_results.py ───────────────────
 # score = num/denom * 100  (precise fraction, not rounded bucket)
 NM, NT = len(MODELS), len(TASKS)
-pass_mat  = np.zeros((NT, NM))   # 1=pass, 0=fail
-score_mat = np.zeros((NT, NM))   # 0-100 (continuous)
+score_mat = np.zeros((NT, NM))
 
 for ti, task in enumerate(TASKS):
     for mi, model in enumerate(MODELS):
-        passed, num, denom = _RAW[task][model]
-        pass_mat[ti, mi]  = float(passed)
+        _, num, denom = _RAW[task][model]
         score_mat[ti, mi] = num / denom * 100
 
-model_pass_rate  = pass_mat.mean(axis=0)   # per-model fraction of tasks passed
-model_mean_score = score_mat.mean(axis=0)  # per-model mean assertion %
-task_pass_rate   = pass_mat.mean(axis=1)   # per-task fraction of models that passed
-overall          = pass_mat.mean() * 100
+model_mean_score = score_mat.mean(axis=0)   # per-model mean assertion %
+task_mean_score  = score_mat.mean(axis=1)   # per-task mean assertion %
+overall_mean     = score_mat.mean()
 
-# Sub-faculty matrices
+# Sub-faculty score matrices
 SUBFACS = ["Calibration", "Error Detection", "Meta Sensitivity", "Thinking Path"]
 SF_TASKS = {sf: [t for t in TASKS if SUB[t] == sf] for sf in SUBFACS}
 
@@ -107,11 +108,6 @@ sf_score_mat = np.zeros((len(SUBFACS), NM))
 for sfi, sf in enumerate(SUBFACS):
     tindices = [TASKS.index(t) for t in SF_TASKS[sf]]
     sf_score_mat[sfi] = score_mat[tindices].mean(axis=0)
-
-sf_pass_mat = np.zeros((len(SUBFACS), NM))
-for sfi, sf in enumerate(SUBFACS):
-    tindices = [TASKS.index(t) for t in SF_TASKS[sf]]
-    sf_pass_mat[sfi] = pass_mat[tindices].mean(axis=0)
 
 # ── Global style ─────────────────────────────────────────────
 BG   = "#0f0f0f"
@@ -128,12 +124,12 @@ def savefig(name: str, fig=None):
     path = OUT / name
     (fig or plt).savefig(path, dpi=150, bbox_inches="tight", facecolor=BG)
     plt.close("all")
-    print(f"[SAVED] {path.name}")
+    print(f"[SAVED] {path}")
 
 CMAP_RG = LinearSegmentedColormap.from_list("rg", ["#3d0000","#8B0000","#226622","#2AA364"])
 
 # ══════════════════════════════════════════════════════════════
-# PLOT 1 — SCORE HEATMAP  (assertion-pass % per model × task)
+# PLOT 1 — SCORE HEATMAP  (assertion % — continuous, no PASS/FAIL)
 # ══════════════════════════════════════════════════════════════
 fig, ax = plt.subplots(figsize=(16, 8))
 im = ax.imshow(score_mat.T, aspect="auto", cmap=CMAP_RG, vmin=0, vmax=100)
@@ -141,66 +137,67 @@ im = ax.imshow(score_mat.T, aspect="auto", cmap=CMAP_RG, vmin=0, vmax=100)
 for mi in range(NM):
     for ti in range(NT):
         val = score_mat[ti, mi]
-        is_pass = pass_mat[ti, mi]
-        label  = "PASS" if is_pass else "FAIL"
-        color  = "#88ff88" if is_pass else "#ff6666"
-        ax.text(ti, mi, f"{label}\n{val:.0f}%", ha="center", va="center",
-                fontsize=7.5, color=color, fontweight="bold" if is_pass else "normal")
+        # colour the text by score tier instead of pass/fail
+        if val >= 80:
+            tc = "#88ff88"
+        elif val >= 50:
+            tc = "#ffdd66"
+        else:
+            tc = "#ff7777"
+        ax.text(ti, mi, f"{val:.0f}%", ha="center", va="center",
+                fontsize=8.5, color=tc, fontweight="bold")
 
 ax.set_xticks(range(NT))
 ax.set_xticklabels([TASK_LABEL[t] for t in TASKS], rotation=42, ha="right", fontsize=8)
 ax.set_yticks(range(NM))
 ax.set_yticklabels(MODELS, fontsize=9)
-plt.colorbar(im, ax=ax, label="Assertion-pass %", shrink=0.7)
+plt.colorbar(im, ax=ax, label="Assertion score %", shrink=0.7)
 
 # Sub-faculty colour strip on top
 for ti, task in enumerate(TASKS):
     col = SF_COLOR[SUB[task]]
     ax.add_patch(plt.Rectangle((ti - 0.5, -1.0), 1.0, 0.5, color=col, clip_on=False))
 
-ax.set_title(f"MetaCal — Score Heatmap  |  overall task-pass {overall:.1f}%",
+ax.set_title(f"MetaCal — Score Heatmap  |  overall mean score {overall_mean:.1f}%",
              fontsize=13, pad=24, color="#eee")
 patches = [mpatches.Patch(color=c, label=k) for k, c in SF_COLOR.items()]
 ax.legend(handles=patches, loc="upper left", bbox_to_anchor=(0, -0.22),
           ncol=4, framealpha=0, fontsize=8, labelcolor="#cccccc")
 plt.tight_layout()
-savefig("ext_01_heatmap.png")
+savefig("s01_heatmap.png")
 
 # ══════════════════════════════════════════════════════════════
-# PLOT 2 — OVERALL BAR  (mean score per model)
+# PLOT 2 — OVERALL BAR  (mean assertion % per model)
 # ══════════════════════════════════════════════════════════════
 sorted_idx   = np.argsort(-model_mean_score)
 s_models     = [MODELS[i] for i in sorted_idx]
-s_pass_rate  = model_pass_rate[sorted_idx] * 100
 s_mean_score = model_mean_score[sorted_idx]
 s_colors     = [MODEL_COLOR[m] for m in s_models]
 
 fig, ax = plt.subplots(figsize=(12, 6))
 x = np.arange(len(s_models))
-b1 = ax.bar(x - 0.2, s_pass_rate,   0.38, color=s_colors, alpha=0.9,  label="Task PASS %")
-b2 = ax.bar(x + 0.2, s_mean_score,  0.38, color=s_colors, alpha=0.45, label="Avg assertion %")
+bars = ax.bar(x, s_mean_score, 0.6, color=s_colors, alpha=0.88, edgecolor="#111")
 
-for bar, val in zip(b1, s_pass_rate):
+for bar, val in zip(bars, s_mean_score):
     ax.text(bar.get_x()+bar.get_width()/2, bar.get_height()+1.5,
-            f"{val:.0f}%", ha="center", va="bottom", fontsize=8, color="#ccc")
-for bar, val in zip(b2, s_mean_score):
-    ax.text(bar.get_x()+bar.get_width()/2, bar.get_height()+1.5,
-            f"{val:.0f}%", ha="center", va="bottom", fontsize=8, color="#999")
+            f"{val:.1f}%", ha="center", va="bottom", fontsize=9, color="#ddd")
 
 ax.set_xticks(x)
 ax.set_xticklabels(s_models, rotation=35, ha="right", fontsize=9)
-ax.set_ylabel("Score (%)")
+ax.set_ylabel("Mean Assertion Score (%)")
 ax.set_ylim(0, 115)
-ax.set_title("Overall MetaCal Score per Model", fontsize=13, pad=10)
-ax.axhline(50, color="#555", lw=0.8, ls="--", alpha=0.6)
+ax.set_title("MetaCal — Mean Assertion Score per Model", fontsize=13, pad=10)
+ax.axhline(50, color="#555", lw=0.8, ls="--", alpha=0.6, label="50% line")
+ax.axhline(overall_mean, color="#aaa", lw=1.0, ls=":", alpha=0.7,
+           label=f"Overall mean ({overall_mean:.1f}%)")
 ax.legend(framealpha=0.15, fontsize=9)
 ax.yaxis.grid(True)
 ax.set_axisbelow(True)
 plt.tight_layout()
-savefig("ext_02_overall_bar.png")
+savefig("s02_overall_bar.png")
 
 # ══════════════════════════════════════════════════════════════
-# PLOT 3 — SUB-FACULTY GROUPED BAR
+# PLOT 3 — SUB-FACULTY GROUPED BAR  (mean assertion % per sub-faculty)
 # ══════════════════════════════════════════════════════════════
 fig, ax = plt.subplots(figsize=(14, 6))
 x    = np.arange(NM)
@@ -208,7 +205,7 @@ w    = 0.21
 sf_c = [SF_COLOR[sf] for sf in SUBFACS]
 
 for i, (sf, col) in enumerate(zip(SUBFACS, sf_c)):
-    vals  = sf_pass_mat[i] * 100
+    vals  = sf_score_mat[i]
     rects = ax.bar(x + (i-1.5)*w, vals, w, label=sf, color=col, alpha=0.85, edgecolor="#111")
     for r, v in zip(rects, vals):
         if v > 5:
@@ -217,17 +214,17 @@ for i, (sf, col) in enumerate(zip(SUBFACS, sf_c)):
 
 ax.set_xticks(x)
 ax.set_xticklabels(MODELS, rotation=35, ha="right", fontsize=9)
-ax.set_ylabel("Task Pass Rate (%)")
+ax.set_ylabel("Mean Assertion Score (%)")
 ax.set_ylim(0, 120)
-ax.set_title("Pass Rate by Sub-Faculty per Model", fontsize=13, pad=10)
+ax.set_title("Mean Assertion Score by Sub-Faculty per Model", fontsize=13, pad=10)
 ax.legend(framealpha=0.2, fontsize=9)
 ax.yaxis.grid(True)
 ax.set_axisbelow(True)
 plt.tight_layout()
-savefig("ext_03_subfaculty_grouped.png")
+savefig("s03_subfaculty_grouped.png")
 
 # ══════════════════════════════════════════════════════════════
-# PLOT 4 — RADAR CHART  (sub-faculty profiles)
+# PLOT 4 — RADAR CHART  (sub-faculty score profiles)
 # ══════════════════════════════════════════════════════════════
 N = len(SUBFACS)
 angles = np.linspace(0, 2*np.pi, N, endpoint=False).tolist()
@@ -239,7 +236,7 @@ fig.patch.set_facecolor(BG)
 
 highlight = ["Claude Opus 4.6", "GPT-5.4", "Deepseek V3.1", "GLM-5", "Gemma 4 31B"]
 for mi, model in enumerate(MODELS):
-    vals = [sf_pass_mat[sfi, mi] for sfi in range(N)] + [sf_pass_mat[0, mi]]
+    vals = [sf_score_mat[sfi, mi] / 100 for sfi in range(N)] + [sf_score_mat[0, mi] / 100]
     col  = MODEL_COLOR[model]
     lw   = 2.5 if model in highlight else 1.0
     al   = 0.9 if model in highlight else 0.35
@@ -255,64 +252,58 @@ ax.grid(color="#2a2a2a", lw=0.6)
 ax.spines["polar"].set_color("#333")
 ax.legend(loc="upper right", bbox_to_anchor=(1.4, 1.15),
           framealpha=0.15, fontsize=8, labelcolor="#ccc")
-ax.set_title("Sub-Faculty Radar — Model Profiles", fontsize=13, pad=20, color="#eee")
+ax.set_title("Sub-Faculty Radar — Model Profiles (score-based)", fontsize=13, pad=20, color="#eee")
 plt.tight_layout()
-savefig("ext_04_radar.png")
+savefig("s04_radar.png")
 
 # ══════════════════════════════════════════════════════════════
-# PLOT 5 — STACKED PASS / FAIL ASSERTION COUNTS
+# PLOT 5 — SCORED ASSERTION STACKED BAR
+# Assertion counts estimated from continuous scores (no binary pass/fail)
 # ══════════════════════════════════════════════════════════════
-# Simulate total assertion counts (avg ~4 assertions/task × 15 tasks = 60 total)
-# We model each assertion as score_mat[ti,mi]/100 fraction passed.
-# For display we scale to a realistic total of 60 assertions per run.
-ASSERTS_PER_TASK = 4  # approximate average
+ASSERTS_PER_TASK = 4
 total_asserts = NT * ASSERTS_PER_TASK
 
-model_passed = (score_mat.mean(axis=0) / 100) * total_asserts
-model_failed = total_asserts - model_passed
-order = np.argsort(-model_passed)
+model_earned  = (model_mean_score / 100) * total_asserts
+model_missed  = total_asserts - model_earned
+order = np.argsort(-model_earned)
 
 fig, ax = plt.subplots(figsize=(11, 5))
 ypos = np.arange(NM)
-ax.barh(ypos, model_passed[order], color="#2AA364", label="Passed", alpha=0.85, edgecolor="#111")
-ax.barh(ypos, model_failed[order], left=model_passed[order],
-        color="#8B0000", label="Failed", alpha=0.85, edgecolor="#111")
+ax.barh(ypos, model_earned[order], color="#2AA364", label="Scored (proportional)",
+        alpha=0.85, edgecolor="#111")
+ax.barh(ypos, model_missed[order], left=model_earned[order],
+        color="#8B0000", label="Missed", alpha=0.85, edgecolor="#111")
 
 for i, mi in enumerate(order):
-    p = model_passed[mi]
-    f = model_failed[mi]
-    ax.text(p/2,   i, f"{p:.0f}", ha="center", va="center", fontsize=9, color="white")
-    ax.text(p+f/2, i, f"{f:.0f}", ha="center", va="center", fontsize=9, color="white")
+    p = model_earned[mi]
+    f = model_missed[mi]
+    ax.text(p/2,   i, f"{p:.1f}", ha="center", va="center", fontsize=9, color="white")
+    ax.text(p+f/2, i, f"{f:.1f}", ha="center", va="center", fontsize=9, color="white")
 
 ax.set_yticks(ypos)
 ax.set_yticklabels([MODELS[i] for i in order], fontsize=9)
-ax.set_xlabel(f"Estimated assertion count (scaled to {total_asserts} total)")
-ax.set_title("Total Assertions: Passed vs Failed per Model", fontsize=13, pad=10)
+ax.set_xlabel(f"Estimated assertion weight (scaled to {total_asserts} total)")
+ax.set_title("Assertion Score Distribution — Earned vs Missed per Model", fontsize=13, pad=10)
 ax.legend(framealpha=0.2, fontsize=9)
 ax.xaxis.grid(True)
 ax.set_axisbelow(True)
 plt.tight_layout()
-savefig("ext_05_passfail_stacked.png")
+savefig("s05_score_stacked.png")
 
 # ══════════════════════════════════════════════════════════════
-# PLOT 6 — LEADERBOARD TABLE
+# PLOT 6 — LEADERBOARD TABLE  (ranked by mean score)
 # ══════════════════════════════════════════════════════════════
-lb_order = np.argsort(-model_pass_rate)
-col_hdrs = ["Rank","Model","Task PASS%","Avg Score%","Calibration","Error Det.","Meta Sens.","Thinking"]
+lb_order = np.argsort(-model_mean_score)
+col_hdrs = ["Rank","Model","Mean Score%","Calibration","Error Det.","Meta Sens.","Thinking"]
 rows = []
 for rank, mi in enumerate(lb_order, 1):
     model = MODELS[mi]
-    row = [
-        f"#{rank}",
-        model,
-        f"{model_pass_rate[mi]*100:.0f}%",
-        f"{model_mean_score[mi]:.0f}%",
-    ]
+    row = [f"#{rank}", model, f"{model_mean_score[mi]:.1f}%"]
     for sfi in range(len(SUBFACS)):
-        row.append(f"{sf_pass_mat[sfi, mi]*100:.0f}%")
+        row.append(f"{sf_score_mat[sfi, mi]:.0f}%")
     rows.append(row)
 
-fig, ax = plt.subplots(figsize=(16, max(3, NM*0.75 + 1.5)))
+fig, ax = plt.subplots(figsize=(15, max(3, NM*0.75 + 1.5)))
 ax.axis("off")
 tbl = ax.table(cellText=rows, colLabels=col_hdrs, loc="center", cellLoc="center")
 tbl.auto_set_font_size(False)
@@ -331,40 +322,44 @@ for i, mi_ord in enumerate(lb_order, 1):
         tbl[i, j].set_text_props(color="#ddd")
     tbl[i, 1].set_text_props(color=MODEL_COLOR[model], fontweight="bold")
 
-ax.set_title("MetaCal Final Leaderboard", fontsize=13, pad=16, color="#eee")
+ax.set_title("MetaCal Final Leaderboard  (by mean assertion score)", fontsize=13, pad=16, color="#eee")
 plt.tight_layout()
-savefig("ext_06_leaderboard.png")
+savefig("s06_leaderboard.png")
 
 # ══════════════════════════════════════════════════════════════
-# PLOT 7 — TASK DIFFICULTY RANKING  (new)
+# PLOT 7 — TASK DIFFICULTY RANKING  (by mean score across models)
 # ══════════════════════════════════════════════════════════════
-diff_order = np.argsort(-task_pass_rate)   # easiest first
+diff_order = np.argsort(-task_mean_score)   # easiest → hardest
 d_labels   = [TASK_LABEL[TASKS[i]] for i in diff_order]
-d_pass     = task_pass_rate[diff_order] * 100
+d_scores   = task_mean_score[diff_order]
 d_colors   = [SF_COLOR[SUB[TASKS[i]]] for i in diff_order]
 
 fig, ax = plt.subplots(figsize=(11, 7))
-bars = ax.barh(range(NT), d_pass, color=d_colors, edgecolor="#111", height=0.7, alpha=0.88)
-for bar, val in zip(bars, d_pass):
+bars = ax.barh(range(NT), d_scores, color=d_colors, edgecolor="#111", height=0.7, alpha=0.88)
+for bar, val in zip(bars, d_scores):
     ax.text(val + 0.8, bar.get_y()+bar.get_height()/2,
-            f"{val:.0f}%", va="center", fontsize=9, color="#ccc")
+            f"{val:.1f}%", va="center", fontsize=9, color="#ccc")
 
 ax.set_yticks(range(NT))
 ax.set_yticklabels(d_labels, fontsize=9)
-ax.set_xlabel("% of Models that PASSED")
-ax.set_xlim(0, 100)
-ax.axvline(50, color="#555", lw=0.8, ls="--", alpha=0.6, label="50% threshold")
-ax.set_title("Task Difficulty Ranking  (easiest → hardest)", fontsize=13, pad=10)
+ax.set_xlabel("Mean Assertion Score across Models (%)")
+ax.set_xlim(0, 110)
+ax.axvline(50, color="#555", lw=0.8, ls="--", alpha=0.6, label="50% line")
+ax.axvline(overall_mean, color="#aaa", lw=0.8, ls=":", alpha=0.7,
+           label=f"Overall mean ({overall_mean:.1f}%)")
+ax.set_title("Task Difficulty Ranking  (highest → lowest mean score)", fontsize=13, pad=10)
 patches = [mpatches.Patch(color=c, label=k) for k, c in SF_COLOR.items()]
-ax.legend(handles=patches + [mpatches.Patch(color="#555",label="50% line")],
-          framealpha=0.15, fontsize=9)
+ax.legend(handles=patches + [
+    mpatches.Patch(color="#555", label="50% line"),
+    mpatches.Patch(color="#aaa", label=f"mean {overall_mean:.1f}%"),
+], framealpha=0.15, fontsize=9)
 ax.xaxis.grid(True)
 ax.set_axisbelow(True)
 plt.tight_layout()
-savefig("ext_07_task_difficulty.png")
+savefig("s07_task_difficulty.png")
 
 # ══════════════════════════════════════════════════════════════
-# PLOT 8 — MODEL CONSISTENCY  (mean ± std across tasks)  (new)
+# PLOT 8 — MODEL CONSISTENCY  (mean ± std across tasks)
 # ══════════════════════════════════════════════════════════════
 m_mean = score_mat.mean(axis=0)
 m_std  = score_mat.std(axis=0)
@@ -373,9 +368,11 @@ cons_order = np.argsort(-m_mean)
 fig, ax = plt.subplots(figsize=(12, 5.5))
 x = np.arange(NM)
 c_colors = [MODEL_COLOR[MODELS[i]] for i in cons_order]
-ax.bar(x, m_mean[cons_order], color=c_colors, alpha=0.75, edgecolor="#111", width=0.6, label="Mean score")
+ax.bar(x, m_mean[cons_order], color=c_colors, alpha=0.75, edgecolor="#111",
+       width=0.6, label="Mean score")
 ax.errorbar(x, m_mean[cons_order], yerr=m_std[cons_order],
-            fmt="none", color="#eee", capsize=5, capthick=1.2, elinewidth=1.2, label="±1 std dev")
+            fmt="none", color="#eee", capsize=5, capthick=1.2, elinewidth=1.2,
+            label="±1 std dev")
 
 for xi, mi in enumerate(cons_order):
     ax.text(xi, m_mean[mi] + m_std[mi] + 2,
@@ -383,20 +380,20 @@ for xi, mi in enumerate(cons_order):
 
 ax.set_xticks(x)
 ax.set_xticklabels([MODELS[i] for i in cons_order], rotation=35, ha="right", fontsize=9)
-ax.set_ylabel("Assertion-pass % (mean ± std across tasks)")
+ax.set_ylabel("Assertion score % (mean ± std across tasks)")
 ax.set_ylim(0, 120)
 ax.set_title("Model Consistency — Mean Score ± Variability Across Tasks", fontsize=13, pad=10)
 ax.legend(framealpha=0.2, fontsize=9)
 ax.yaxis.grid(True)
 ax.set_axisbelow(True)
 plt.tight_layout()
-savefig("ext_08_consistency.png")
+savefig("s08_consistency.png")
 
 # ══════════════════════════════════════════════════════════════
-# PLOT 9 — GAP FROM LEADER  (how far behind the best model)  (new)
+# PLOT 9 — GAP FROM LEADER  (how far behind the top score)
 # ══════════════════════════════════════════════════════════════
-best_per_task = score_mat.max(axis=1)   # shape (NT,)
-gap_mat = best_per_task[:, None] - score_mat   # (NT, NM)  — how many % behind leader
+best_per_task = score_mat.max(axis=1)
+gap_mat = best_per_task[:, None] - score_mat
 
 fig, ax = plt.subplots(figsize=(16, 7))
 gap_cmap = LinearSegmentedColormap.from_list("gap", ["#006600","#aaaa00","#cc0000","#660000"])
@@ -412,20 +409,20 @@ ax.set_xticks(range(NT))
 ax.set_xticklabels([TASK_LABEL[t] for t in TASKS], rotation=42, ha="right", fontsize=8)
 ax.set_yticks(range(NM))
 ax.set_yticklabels(MODELS, fontsize=9)
-plt.colorbar(im, ax=ax, label="Gap below best model (%)", shrink=0.7)
-ax.set_title("Gap from Best Model per Task  (green=near-best, red=far behind)", fontsize=13, pad=10)
+plt.colorbar(im, ax=ax, label="Gap below best score (%)", shrink=0.7)
+ax.set_title("Gap from Best Score per Task  (green=near-best, red=far behind)", fontsize=13, pad=10)
 plt.tight_layout()
-savefig("ext_09_gap_from_leader.png")
+savefig("s09_gap_from_leader.png")
 
 # ══════════════════════════════════════════════════════════════
-# PLOT 10 — SUB-FACULTY HEATMAP  (compact overview)  (new)
+# PLOT 10 — SUB-FACULTY HEATMAP  (compact mean score overview)
 # ══════════════════════════════════════════════════════════════
 fig, ax = plt.subplots(figsize=(12, 4))
-im = ax.imshow(sf_pass_mat * 100, aspect="auto", cmap=CMAP_RG, vmin=0, vmax=100)
+im = ax.imshow(sf_score_mat, aspect="auto", cmap=CMAP_RG, vmin=0, vmax=100)
 
 for sfi in range(len(SUBFACS)):
     for mi in range(NM):
-        val = sf_pass_mat[sfi, mi] * 100
+        val = sf_score_mat[sfi, mi]
         ax.text(mi, sfi, f"{val:.0f}%", ha="center", va="center",
                 fontsize=9, fontweight="bold", color="white" if val < 60 else "#111")
 
@@ -433,28 +430,28 @@ ax.set_xticks(range(NM))
 ax.set_xticklabels(MODELS, rotation=35, ha="right", fontsize=9)
 ax.set_yticks(range(len(SUBFACS)))
 ax.set_yticklabels(SUBFACS, fontsize=10)
-plt.colorbar(im, ax=ax, label="Task pass rate %", shrink=0.8)
-ax.set_title("Sub-Faculty × Model Heatmap  (% tasks passed within sub-faculty)", fontsize=13, pad=10)
+plt.colorbar(im, ax=ax, label="Mean assertion score %", shrink=0.8)
+ax.set_title("Sub-Faculty × Model Heatmap  (mean assertion score %)", fontsize=13, pad=10)
 plt.tight_layout()
-savefig("ext_10_subfaculty_matrix.png")
+savefig("s10_subfaculty_matrix.png")
 
 # ══════════════════════════════════════════════════════════════
-# PLOT 11 — CALIBRATION DEEP-DIVE  (new)
+# PLOT 11 — CALIBRATION DEEP-DIVE
 # ══════════════════════════════════════════════════════════════
-cal_tasks = SF_TASKS["Calibration"]   # T-01, T-02, T-03, T-15
-cal_idx   = [TASKS.index(t) for t in cal_tasks]
+cal_tasks  = SF_TASKS["Calibration"]
+cal_idx    = [TASKS.index(t) for t in cal_tasks]
 cal_labels = [TASK_LABEL[t] for t in cal_tasks]
 
 fig, axes = plt.subplots(1, 2, figsize=(15, 6))
 
-# Left: per-task pass rate within calibration, per model
-cal_score = score_mat[cal_idx]   # shape (4, NM)
+# Left: per-task scores within calibration, per model
+cal_score = score_mat[cal_idx]
 bar_x     = np.arange(NM)
 w         = 0.21
 n_cal = len(cal_labels)
 for ci, (tlabel, col) in enumerate(zip(cal_labels,
                                         ["#4C72B0","#6896CA","#8cbce0","#b0d4f0"])):
-    vals = cal_score[ci]
+    vals  = cal_score[ci]
     offset = (ci - (n_cal - 1) / 2) * w
     rects = axes[0].bar(bar_x + offset, vals, w,
                         label=tlabel[:20], color=col, alpha=0.85, edgecolor="#111")
@@ -465,16 +462,16 @@ for ci, (tlabel, col) in enumerate(zip(cal_labels,
 
 axes[0].set_xticks(bar_x)
 axes[0].set_xticklabels(MODELS, rotation=35, ha="right", fontsize=8)
-axes[0].set_ylabel("Assertion-pass %")
+axes[0].set_ylabel("Assertion score %")
 axes[0].set_ylim(0, 120)
 axes[0].set_title("Calibration Task Scores per Model", fontsize=11)
 axes[0].legend(framealpha=0.2, fontsize=8)
 axes[0].yaxis.grid(True); axes[0].set_axisbelow(True)
 
 # Right: calibration vs error-detection scatter
-ed_idx   = [TASKS.index(t) for t in SF_TASKS["Error Detection"]]
-cal_avg  = score_mat[cal_idx].mean(axis=0)
-ed_avg   = score_mat[ed_idx].mean(axis=0)
+ed_idx  = [TASKS.index(t) for t in SF_TASKS["Error Detection"]]
+cal_avg = score_mat[cal_idx].mean(axis=0)
+ed_avg  = score_mat[ed_idx].mean(axis=0)
 
 for mi, model in enumerate(MODELS):
     col = MODEL_COLOR[model]
@@ -484,32 +481,39 @@ for mi, model in enumerate(MODELS):
                      textcoords="offset points", xytext=(6,3), fontsize=7.5, color=col)
 
 axes[1].plot([0,100],[0,100], color="#444", lw=0.8, ls="--", alpha=0.5)
-axes[1].set_xlabel("Calibration avg score %")
-axes[1].set_ylabel("Error Detection avg score %")
+axes[1].set_xlabel("Calibration mean score %")
+axes[1].set_ylabel("Error Detection mean score %")
 axes[1].set_title("Calibration vs Error Detection\n(diagonal = balanced)", fontsize=11)
 axes[1].set_xlim(0,110); axes[1].set_ylim(0,110)
 axes[1].grid()
 
-fig.suptitle("Calibration Sub-Faculty Deep-Dive", fontsize=13, color="#eee", y=1.01)
+fig.suptitle("Calibration Sub-Faculty Deep-Dive  (score-based)", fontsize=13, color="#eee", y=1.01)
 plt.tight_layout()
-savefig("ext_11_calibration_deepdive.png")
+savefig("s11_calibration_deepdive.png")
 
 # ══════════════════════════════════════════════════════════════
-# PLOT 12 — HARDEST TASK PER MODEL  (annotated bubble grid)  (new)
+# PLOT 12 — BUBBLE GRID  (size & shade by continuous score)
+# No binary pass/fail — colour intensity encodes score tier
 # ══════════════════════════════════════════════════════════════
 fig, ax = plt.subplots(figsize=(14, 6))
 
 for mi, model in enumerate(MODELS):
     for ti, task in enumerate(TASKS):
-        s = score_mat[ti, mi]
-        p = pass_mat[ti, mi]
-        size = max(20, s * 2.5)
-        col  = SF_COLOR[SUB[task]]
-        alpha= 0.9 if p else 0.35
+        s   = score_mat[ti, mi]
+        size = max(20, s * 2.8)
+        # shade: green ≥80, yellow 50-79, red <50
+        if s >= 80:
+            col = "#2AA364"
+        elif s >= 50:
+            col = "#CC9900"
+        else:
+            col = SF_COLOR[SUB[task]]
+        alpha = 0.2 + 0.7 * (s / 100)
         ax.scatter(ti, mi, s=size, color=col, alpha=alpha,
-                   edgecolors="#aaa" if p else "#333", linewidths=0.8 if p else 0.4)
+                   edgecolors="#aaa" if s >= 80 else "#333",
+                   linewidths=0.8 if s >= 80 else 0.4)
 
-    # Mark worst task
+    # Annotate the worst-scoring task per model
     worst_ti = int(np.argmin(score_mat[:, mi]))
     ax.annotate("", xy=(worst_ti, mi),
                 xytext=(worst_ti + 0.6, mi + 0.35),
@@ -519,78 +523,43 @@ ax.set_xticks(range(NT))
 ax.set_xticklabels([t for t in TASKS], fontsize=9)
 ax.set_yticks(range(NM))
 ax.set_yticklabels(MODELS, fontsize=9)
-ax.set_title("Bubble Grid — Circle size = assertion %, filled = PASS, arrow = worst task",
+ax.set_title("Bubble Grid — size & colour = assertion score, arrow = worst task per model",
              fontsize=11, pad=10)
-patches = [mpatches.Patch(color=c, label=k) for k, c in SF_COLOR.items()]
-ax.legend(handles=patches, loc="upper right", framealpha=0.15, fontsize=9)
+legend_patches = [
+    mpatches.Patch(color="#2AA364", label="Score ≥ 80%"),
+    mpatches.Patch(color="#CC9900", label="Score 50–79%"),
+    mpatches.Patch(color="#8B0000", label="Score < 50%"),
+]
+ax.legend(handles=legend_patches, loc="upper right", framealpha=0.15, fontsize=9)
 ax.xaxis.grid(True, lw=0.3)
 ax.yaxis.grid(True, lw=0.3)
 ax.set_axisbelow(True)
 plt.tight_layout()
-savefig("ext_12_bubble_grid.png")
+savefig("s12_bubble_grid.png")
 
 # ══════════════════════════════════════════════════════════════
-# PRINTED INSIGHTS
+# PRINTED SUMMARY
 # ══════════════════════════════════════════════════════════════
 print("\n" + "="*65)
-print("  METACAL BENCHMARK — KEY INSIGHTS")
+print("  METACAL — SCORE-ONLY SUMMARY")
 print("="*65)
 
-# 1. Overall
-print(f"\n[1] OVERALL TASK-PASS RATE: {overall:.1f}%")
-print("    Metacognition is a hard frontier — only 1 in 7 task-runs")
-print("    passes all assertions. No model exceeds 50% task-pass rate.")
+print(f"\n[1] OVERALL MEAN ASSERTION SCORE: {overall_mean:.1f}%")
 
-# 2. Model ranking
-print("\n[2] MODEL RANKING (by task pass rate):")
-for rank, mi in enumerate(np.argsort(-model_pass_rate), 1):
-    print(f"    #{rank:2d}  {MODELS[mi]:<22}  {model_pass_rate[mi]*100:5.1f}%  "
-          f"(avg assertion {model_mean_score[mi]:.0f}%)")
+print("\n[2] MODEL RANKING (by mean assertion score):")
+for rank, mi in enumerate(np.argsort(-model_mean_score), 1):
+    print(f"    #{rank:2d}  {MODELS[mi]:<22}  {model_mean_score[mi]:5.1f}%")
 
-# 3. Sub-faculty insight
-print("\n[3] SUB-FACULTY HARDNESS:")
-sf_overall = [sf_pass_mat[i].mean()*100 for i in range(len(SUBFACS))]
-for sf, val in sorted(zip(SUBFACS, sf_overall), key=lambda x: x[1]):
+print("\n[3] SUB-FACULTY MEAN SCORES:")
+sf_overall = [sf_score_mat[i].mean() for i in range(len(SUBFACS))]
+for sf, val in sorted(zip(SUBFACS, sf_overall), key=lambda x: x[1], reverse=True):
     bar = "#" * int(val / 5)
     print(f"    {sf:<20}  {val:5.1f}%  {bar}")
 
-print("\n    -> Error Detection (T-04) is the only sub-faculty where")
-print("      models show meaningful competence (T-04: 62% pass rate).")
-print("    -> Meta Sensitivity and Calibration are weakest overall.")
+print("\n[4] TASK DIFFICULTY (highest score = easiest):")
+for ti in np.argsort(-task_mean_score):
+    print(f"    {TASKS[ti]}  {task_mean_score[ti]:5.1f}%  ({SUB[TASKS[ti]]})  "
+          f"{TASK_LABEL[TASKS[ti]][5:]}")
 
-# 4. Task difficulty
-print("\n[4] TASK DIFFICULTY (hardest first):")
-for ti in np.argsort(task_pass_rate):
-    print(f"    {TASKS[ti]}  {task_pass_rate[ti]*100:5.1f}%  "
-          f"({SUB[TASKS[ti]]})  {TASK_LABEL[TASKS[ti]][5:]}")
-
-# 5. Provider patterns
-print("\n[5] PROVIDER PATTERNS:")
-groups = {
-    "Anthropic":  ["Claude Opus 4.6","Claude Sonnet 4.6"],
-    "OpenAI":     ["GPT-5.4","GPT-5.4 mini"],
-    "Google":     ["Gemini 2.5 Flash","Gemini 3.1 Flash-Lite Preview","Gemma 4 31B"],
-    "DeepSeek":   ["Deepseek V3.1"],
-    "Qwen":       ["Qwen 3 Next 80B Thinking"],
-    "ZhipuAI":    ["GLM-5"],
-}
-for provider, members in groups.items():
-    avg = np.mean([model_pass_rate[MODELS.index(m)]*100 for m in members if m in MODELS])
-    print(f"    {provider:<12}  {avg:5.1f}% avg task-pass")
-
-# 6. Consistency
-print("\n[6] MOST CONSISTENT MODELS (low std-dev across tasks):")
-stds = score_mat.std(axis=0)
-for mi in np.argsort(stds)[:4]:
-    print(f"    {MODELS[mi]:<22}  std={stds[mi]:.1f}%  (mean {model_mean_score[mi]:.0f}%)")
-
-# 7. Specific findings
-print("\n[7] NOTABLE FINDINGS:")
-print("    - T-07 is passed by only 1 model (GPT-5.4); T-08 by 1 (Qwen 3).")
-print("    - T-02 (Strategy Sel.) passed only by Deepseek V3.1.")
-print("    - T-03 (Uncertainty Inj.) and T-07 are the hardest tasks overall.")
-print("    - Calibration (T-01,T-03) and Meta Sensitivity (T-07,T-08) weakest sub-faculties.")
-print("    - Thinking Path is weighted 20% and spans 6 tasks (T-02,T-06,T-09-T-12).")
-print("\n" + "="*65)
-print("  12 plots saved. All data read from raw_results.py (single source of truth).")
+print(f"\n[5] 12 score-only plots saved to: {OUT}")
 print("="*65)
