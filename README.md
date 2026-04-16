@@ -2,6 +2,8 @@
 
 MetaCal evaluates whether large language models *know what they know*. Standard benchmarks measure accuracy; MetaCal measures **metacognitive calibration** — the degree to which a model's expressed confidence tracks its actual correctness. The design is grounded in cognitive psychology and measures four core sub-faculties across twelve tasks.
 
+**[Live Benchmark on Kaggle](https://www.kaggle.com/benchmarks/abdullahelbarrany/meta-cal-benchmark)**
+
 ---
 
 ## Why Metacognition Matters
@@ -497,6 +499,6 @@ Core dependencies: `numpy`, `scipy`, `metadpy` (meta-d' via MLE), `matplotlib`, 
 
 ## Authors
 
-**Abdullah Elbarrany** — Google DeepMind 2026 Programme
+**[Abdullah Elbarrany](https://abdullahelbarrany.github.io/AE_Portfolio/)** 
 
-**Khaled Essam** — Google DeepMind 2026 Programme
+**[Khaled Essam](https://khaled-developer.vercel.app)** 
