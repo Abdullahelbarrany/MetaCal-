@@ -80,6 +80,7 @@ MODEL_COLOR = {
     "Qwen 3 Next 80B Thinking":      "#55A868",
     "Deepseek V3.1":                 "#7B5CF5",
     "GPT-5.4 mini":                  "#60C090",
+    "DeepSeek-R1":                   "#FF6B6B",
 }
 
 # ── Build numpy matrices from raw_results.py ─────────────────

@@ -26,6 +26,7 @@ RAW: dict[str, dict[str, tuple[bool, int, int]]] = {
         "Qwen 3 Next 80B Thinking":      (False, 23, 25),
         "GLM-5":                         (False, 24, 25),
         "GPT-5.4 mini":                  (False, 24, 25),
+        "DeepSeek-R1":                (False, 23, 25),  # Not on Kaggle, but included in paper's Table 1 for reference
     },
 
     "T-02": {
@@ -40,6 +41,8 @@ RAW: dict[str, dict[str, tuple[bool, int, int]]] = {
         "Qwen 3 Next 80B Thinking":      (False,  9, 13),
         "GLM-5":                         (False,  8, 13),
         "GPT-5.4 mini":                  (False,  8, 13),
+        "DeepSeek-R1":                (False, 4, 13),  # Not on Kaggle, but included in paper's Table 1 for reference
+
     },
 
     "T-03": {
@@ -54,6 +57,8 @@ RAW: dict[str, dict[str, tuple[bool, int, int]]] = {
         "Qwen 3 Next 80B Thinking":      (False,  8, 25),
         "GLM-5":                         (False, 16, 25),
         "GPT-5.4 mini":                  (False, 10, 25),
+        "DeepSeek-R1":                (False, 9, 25),  # Not on Kaggle, but included in paper's Table 1 for reference
+
     },
 
     "T-04": {
@@ -68,6 +73,8 @@ RAW: dict[str, dict[str, tuple[bool, int, int]]] = {
         "Qwen 3 Next 80B Thinking":      (False, 25, 26),
         "GLM-5":                         (False, 17, 23),
         "GPT-5.4 mini":                  (False, 19, 23),
+                "DeepSeek-R1":                (False,18 ,26 ),  # Not on Kaggle, but included in paper's Table 1 for reference
+
     },
 
     "T-05": {
@@ -82,6 +89,8 @@ RAW: dict[str, dict[str, tuple[bool, int, int]]] = {
         "Qwen 3 Next 80B Thinking":      (False, 16, 19),
         "GLM-5":                         (False, 18, 19),
         "GPT-5.4 mini":                  (False, 16, 19),
+        "DeepSeek-R1":                (False,13 ,19 ),  # Not on Kaggle, but included in paper's Table 1 for reference
+
     },
 
     "T-06": {
@@ -96,6 +105,8 @@ RAW: dict[str, dict[str, tuple[bool, int, int]]] = {
         "Qwen 3 Next 80B Thinking":      (False, 14, 15),
         "GLM-5":                         (False,  6, 15),
         "GPT-5.4 mini":                  (False, 13, 15),
+                "DeepSeek-R1":                (False, 12, 15),  # Not on Kaggle, but included in paper's Table 1 for reference
+
     },
 
     "T-07": {
@@ -110,6 +121,8 @@ RAW: dict[str, dict[str, tuple[bool, int, int]]] = {
         "Qwen 3 Next 80B Thinking":      (False,  2,  4),
         "GLM-5":                         (False,  2,  4),
         "GPT-5.4 mini":                  (False,  2,  5),
+                        "DeepSeek-R1":                (False,2 , 5),  # Not on Kaggle, but included in paper's Table 1 for reference
+
     },
 
     "T-08": {
@@ -124,6 +137,8 @@ RAW: dict[str, dict[str, tuple[bool, int, int]]] = {
         "Qwen 3 Next 80B Thinking":      (True,  19, 19),
         "GLM-5":                         (False, 18, 19),
         "GPT-5.4 mini":                  (False, 18, 19),
+                        "DeepSeek-R1":                (False, 18,19 ),  # Not on Kaggle, but included in paper's Table 1 for reference
+
     },
 
     "T-09": {
@@ -138,6 +153,8 @@ RAW: dict[str, dict[str, tuple[bool, int, int]]] = {
         "Qwen 3 Next 80B Thinking":      (False, 60, 62),
         "GLM-5":                         (False, 60, 62),
         "GPT-5.4 mini":                  (False, 60, 62),
+                        "DeepSeek-R1":                (True,62 ,62 ),  # Not on Kaggle, but included in paper's Table 1 for reference
+
     },
 
     "T-10": {
@@ -152,6 +169,8 @@ RAW: dict[str, dict[str, tuple[bool, int, int]]] = {
         "Qwen 3 Next 80B Thinking":      (False, 20, 22),
         "GLM-5":                         (False, 20, 22),
         "GPT-5.4 mini":                  (False, 20, 22),
+        "DeepSeek-R1":                (True, 22, 22), 
+
     },
 
     "T-11": {
@@ -166,6 +185,8 @@ RAW: dict[str, dict[str, tuple[bool, int, int]]] = {
         "Qwen 3 Next 80B Thinking":      (False, 22, 35),
         "GLM-5":                         (False, 23, 35),
         "GPT-5.4 mini":                  (False, 24, 35),
+        "DeepSeek-R1":                (False, 13,33 ),  # Not on Kaggle, but included in paper's Table 1 for reference
+
     },
 
     "T-12": {
@@ -180,6 +201,8 @@ RAW: dict[str, dict[str, tuple[bool, int, int]]] = {
         "Qwen 3 Next 80B Thinking":      (False, 11, 15),
         "GLM-5":                         (False, 10, 14),
         "GPT-5.4 mini":                  (False, 11, 16),
+                        "DeepSeek-R1":                (False, 10, 14),  # Not on Kaggle, but included in paper's Table 1 for reference
+
     },
 }
 
