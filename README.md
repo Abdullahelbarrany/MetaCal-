@@ -91,7 +91,15 @@ MetaCal uses a **weighted scoring system** grounded in the psychometric literatu
 
 ![Task Heatmap](ext_01_heatmap.png)
 
-*Pass/Fail across all 12 tasks × 10 models. Colour encodes assertion-pass %. Sub-faculty colour strip on top.*
+*Pass/Fail across all 12 tasks × 11 models. Colour encodes assertion-pass %. Sub-faculty colour strip on top.*
+
+---
+
+### Overall Score per Model
+
+![Overall Bar](ext_02_overall_bar.png)
+
+*Dual-bar chart showing task pass rate (solid) and mean assertion score (translucent) per model, sorted by mean score.*
 
 ---
 
@@ -143,6 +151,14 @@ MetaCal uses a **weighted scoring system** grounded in the psychometric literatu
 
 ---
 
+### Sub-Faculty × Model Heatmap
+
+![Sub-Faculty Matrix](ext_10_subfaculty_matrix.png)
+
+*Compact heatmap of task pass rate within each sub-faculty per model — quick cross-model overview.*
+
+---
+
 ### Task Difficulty Ranking
 
 ![Task Difficulty](ext_07_task_difficulty.png)
@@ -175,6 +191,14 @@ MetaCal uses a **weighted scoring system** grounded in the psychometric literatu
 
 ---
 
+### Bubble Grid
+
+![Bubble Grid](ext_12_bubble_grid.png)
+
+*Each bubble's size encodes assertion score; filled = PASS, faded = FAIL. Red arrow marks each model's worst task.*
+
+---
+
 ### Task Weight Grid
 
 ![Task Weight Grid](thresh_04_task_weight_grid.png)
@@ -191,6 +215,106 @@ MetaCal uses a **weighted scoring system** grounded in the psychometric literatu
 
 ---
 
+## Score-Only Analysis
+
+The `score_only/` folder contains a parallel set of 12 plots that use **continuous assertion scores only** — no binary pass/fail threshold is applied anywhere. These are useful for comparing models on a gradient rather than a pass/fail basis.
+
+### Score Heatmap (continuous)
+
+![Score Heatmap](score_only/s01_heatmap.png)
+
+*Assertion score % per model × task. Text colour: green ≥ 80%, yellow 50–79%, red < 50%.*
+
+---
+
+### Mean Score per Model
+
+![Mean Score Bar](score_only/s02_overall_bar.png)
+
+*Models ranked by mean assertion score across all 12 tasks.*
+
+---
+
+### Sub-Faculty Mean Scores (grouped)
+
+![Sub-Faculty Grouped Score](score_only/s03_subfaculty_grouped.png)
+
+*Grouped bar chart — mean assertion score per sub-faculty per model.*
+
+---
+
+### Radar (score-based)
+
+![Radar Score](score_only/s04_radar.png)
+
+*Radar profile using continuous sub-faculty mean scores instead of binary pass rates.*
+
+---
+
+### Assertion Score Stacked Bar
+
+![Score Stacked](score_only/s05_score_stacked.png)
+
+*Proportional earned vs missed assertion weight per model (no threshold rounding).*
+
+---
+
+### Score Leaderboard
+
+![Score Leaderboard](score_only/s06_leaderboard.png)
+
+*Ranked leaderboard by mean assertion score with per-sub-faculty columns.*
+
+---
+
+### Task Difficulty (score-based)
+
+![Task Difficulty Score](score_only/s07_task_difficulty.png)
+
+*Tasks sorted by cross-model mean score — hardest tasks bottom, easiest top.*
+
+---
+
+### Model Consistency (score-based)
+
+![Consistency Score](score_only/s08_consistency.png)
+
+*Mean ± std deviation of assertion scores across tasks per model.*
+
+---
+
+### Gap From Best Score
+
+![Gap Score](score_only/s09_gap_from_leader.png)
+
+*How many percentage points each model trails the top-scoring model on each task.*
+
+---
+
+### Sub-Faculty × Model Heatmap (score-based)
+
+![Sub-Faculty Matrix Score](score_only/s10_subfaculty_matrix.png)
+
+*Compact heatmap using mean assertion scores within each sub-faculty.*
+
+---
+
+### Calibration Deep-Dive (score-based)
+
+![Calibration Deepdive Score](score_only/s11_calibration_deepdive.png)
+
+*T-01 and T-03 scores per model, plus calibration vs error-detection scatter (no threshold).*
+
+---
+
+### Bubble Grid (score-based)
+
+![Bubble Grid Score](score_only/s12_bubble_grid.png)
+
+*Bubble size and colour both encode continuous assertion score. Green ≥ 80%, yellow 50–79%, red < 50%. Arrow = worst task per model.*
+
+---
+
 ## Models Tested
 
 | Provider | Model (display name) |
@@ -198,9 +322,11 @@ MetaCal uses a **weighted scoring system** grounded in the psychometric literatu
 | Anthropic | Claude Opus 4.6, Claude Sonnet 4.6 |
 | OpenAI | GPT-5.4, GPT-5.4 mini |
 | Google | Gemini 2.5 Flash, Gemini 3.1 Flash-Lite Preview, Gemma 4 31B |
-| DeepSeek | Deepseek V3.1 |
+| DeepSeek | Deepseek V3.1, DeepSeek-R1 †|
 | Qwen | Qwen 3 Next 80B Thinking |
 | ZhipuAI | GLM-5 |
+
+*† DeepSeek-R1 results are included for paper reference (Table 1) but were not run on Kaggle infrastructure.*
 
 ---
 
